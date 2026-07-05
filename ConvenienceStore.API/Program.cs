@@ -24,6 +24,13 @@ builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepositor
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<ConvenienceStore.Application.Contracts.External.ICacheService, ConvenienceStore.Infrastructure.ExternalServices.Caching.RedisCacheService>();
+
+// Configure Redis
+builder.Services.AddStackExchangeRedisCache(options =>
+{
+    options.Configuration = builder.Configuration["RedisConnection"];
+});
 
 // Configure JWT Authentication
 var jwtSettings = builder.Configuration.GetSection("JwtSettings");
@@ -45,6 +52,24 @@ builder.Services.AddAuthentication(options =>
         ValidIssuer = jwtSettings["Issuer"],
         ValidAudience = jwtSettings["Audience"],
         IssuerSigningKey = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(secretKey!))
+    };
+
+    options.Events = new JwtBearerEvents
+    {
+        OnTokenValidated = async context =>
+        {
+            var cacheService = context.HttpContext.RequestServices.GetRequiredService<ConvenienceStore.Application.Contracts.External.ICacheService>();
+            var jti = context.Principal?.FindFirst(System.IdentityModel.Tokens.Jwt.JwtRegisteredClaimNames.Jti)?.Value;
+            
+            if (!string.IsNullOrEmpty(jti))
+            {
+                var isBlacklisted = await cacheService.GetAsync($"blacklist:{jti}");
+                if (!string.IsNullOrEmpty(isBlacklisted))
+                {
+                    context.Fail("This token has been blacklisted.");
+                }
+            }
+        }
     };
 });
 

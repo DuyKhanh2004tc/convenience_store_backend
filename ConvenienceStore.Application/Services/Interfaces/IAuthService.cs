@@ -7,4 +7,5 @@ public interface IAuthService
     Task<AuthResponse> LoginAsync(LoginRequest request);
     Task<AuthResponse> SeedAdminAsync();
     Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request);
+    Task LogoutAsync(int userId, string jti, TimeSpan remainingTime);
 }

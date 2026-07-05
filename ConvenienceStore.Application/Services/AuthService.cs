@@ -12,17 +12,20 @@ public class AuthService : IAuthService
     private readonly IGenericRepository<Role> _roleRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
+    private readonly ConvenienceStore.Application.Contracts.External.ICacheService _cacheService;
 
     public AuthService(
         IGenericRepository<User> userRepository,
         IGenericRepository<Role> roleRepository,
         IUnitOfWork unitOfWork,
-        IJwtTokenGenerator jwtTokenGenerator)
+        IJwtTokenGenerator jwtTokenGenerator,
+        ConvenienceStore.Application.Contracts.External.ICacheService cacheService)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _unitOfWork = unitOfWork;
         _jwtTokenGenerator = jwtTokenGenerator;
+        _cacheService = cacheService;
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
@@ -144,5 +147,23 @@ public class AuthService : IAuthService
             Token = tokens.AccessToken,
             RefreshToken = tokens.RefreshToken
         };
+    }
+
+    public async Task LogoutAsync(int userId, string jti, TimeSpan remainingTime)
+    {
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null)
+            throw new Exception("User not found");
+
+        user.RefreshToken = null;
+        user.RefreshTokenExpiryTime = null;
+        
+        _userRepository.Update(user);
+        await _unitOfWork.SaveChangesAsync();
+
+        if (remainingTime.TotalSeconds > 0)
+        {
+            await _cacheService.SetAsync($"blacklist:{jti}", "true", remainingTime);
+        }
     }
 }
