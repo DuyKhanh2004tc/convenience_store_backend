@@ -11,6 +11,8 @@ public class User : BaseEntity
     public int RoleId { get; set; }
     public int? BranchId { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? RefreshToken { get; set; }
+    public DateTime? RefreshTokenExpiryTime { get; set; }
 
     // Navigation properties
     public virtual Role Role { get; set; } = null!;

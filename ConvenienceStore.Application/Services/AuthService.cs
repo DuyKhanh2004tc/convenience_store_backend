@@ -27,30 +27,26 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
     {
-        // 1. Find user by username
         var users = await _userRepository.GetAsync(x => x.Username == request.Username && x.IsActive);
         var user = users.FirstOrDefault();
         if (user == null)
-        {
-            throw new Exception("Invalid username or password"); // In real app, throw Custom Exception (e.g. UnauthorizedException)
-        }
+            throw new Exception("Invalid username or password");
 
-        // 2. Verify password
         bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
         if (!isPasswordValid)
-        {
             throw new Exception("Invalid username or password");
-        }
 
-        // 3. Get Role name
         var role = await _roleRepository.GetByIdAsync(user.RoleId);
         if (role == null)
-        {
             throw new Exception("Role not found");
-        }
 
-        // 4. Generate JWT Token
-        var token = _jwtTokenGenerator.GenerateToken(user, role.RoleName);
+        var tokens = _jwtTokenGenerator.GenerateTokens(user, role.RoleName);
+        
+        user.RefreshToken = tokens.RefreshToken;
+        user.RefreshTokenExpiryTime = tokens.RefreshTokenExpiryTime;
+
+        _userRepository.Update(user);
+        await _unitOfWork.SaveChangesAsync();
 
         return new AuthResponse
         {
@@ -58,13 +54,13 @@ public class AuthService : IAuthService
             Username = user.Username,
             FullName = user.FullName,
             RoleName = role.RoleName,
-            Token = token
+            Token = tokens.AccessToken,
+            RefreshToken = tokens.RefreshToken
         };
     }
 
     public async Task<AuthResponse> SeedAdminAsync()
     {
-        // Create System Admin role if not exists
         var roles = await _roleRepository.GetAsync(r => r.RoleName == "System Admin");
         var adminRole = roles.FirstOrDefault();
 
@@ -76,10 +72,9 @@ public class AuthService : IAuthService
                 Description = "Administrator with full access"
             };
             await _roleRepository.AddAsync(adminRole);
-            await _unitOfWork.SaveChangesAsync(); // Save to get RoleId
+            await _unitOfWork.SaveChangesAsync();
         }
 
-        // Check if admin user exists
         var users = await _userRepository.GetAsync(u => u.Username == "admin");
         var adminUser = users.FirstOrDefault();
 
@@ -88,7 +83,7 @@ public class AuthService : IAuthService
             adminUser = new User
             {
                 Username = "admin",
-                PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"), // Seed with default password
+                PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
                 FullName = "System Administrator",
                 RoleId = adminRole.RoleId,
                 IsActive = true
@@ -97,8 +92,13 @@ public class AuthService : IAuthService
             await _unitOfWork.SaveChangesAsync();
         }
 
-        // Return token
-        var token = _jwtTokenGenerator.GenerateToken(adminUser, adminRole.RoleName);
+        var tokens = _jwtTokenGenerator.GenerateTokens(adminUser, adminRole.RoleName);
+        
+        adminUser.RefreshToken = tokens.RefreshToken;
+        adminUser.RefreshTokenExpiryTime = tokens.RefreshTokenExpiryTime;
+
+        _userRepository.Update(adminUser);
+        await _unitOfWork.SaveChangesAsync();
 
         return new AuthResponse
         {
@@ -106,7 +106,43 @@ public class AuthService : IAuthService
             Username = adminUser.Username,
             FullName = adminUser.FullName,
             RoleName = adminRole.RoleName,
-            Token = token
+            Token = tokens.AccessToken,
+            RefreshToken = tokens.RefreshToken
+        };
+    }
+
+    public async Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request)
+    {
+        var principal = _jwtTokenGenerator.GetPrincipalFromExpiredToken(request.AccessToken);
+        if (principal == null)
+            throw new Exception("Invalid access token or refresh token");
+
+        var userIdClaim = principal.FindFirst("sub")?.Value;
+        if (userIdClaim == null || !int.TryParse(userIdClaim, out int userId))
+            throw new Exception("Invalid access token or refresh token");
+
+        var user = await _userRepository.GetByIdAsync(userId);
+        if (user == null || user.RefreshToken != request.RefreshToken || user.RefreshTokenExpiryTime <= DateTime.UtcNow)
+            throw new Exception("Invalid access token or refresh token");
+
+        var role = await _roleRepository.GetByIdAsync(user.RoleId);
+        
+        var tokens = _jwtTokenGenerator.GenerateTokens(user, role!.RoleName);
+        
+        user.RefreshToken = tokens.RefreshToken;
+        user.RefreshTokenExpiryTime = tokens.RefreshTokenExpiryTime;
+
+        _userRepository.Update(user);
+        await _unitOfWork.SaveChangesAsync();
+
+        return new AuthResponse
+        {
+            UserId = user.UserId,
+            Username = user.Username,
+            FullName = user.FullName,
+            RoleName = role.RoleName,
+            Token = tokens.AccessToken,
+            RefreshToken = tokens.RefreshToken
         };
     }
 }
