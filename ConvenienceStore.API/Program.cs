@@ -24,6 +24,7 @@ builder.Services.AddScoped(typeof(IGenericRepository<>), typeof(GenericRepositor
 builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IJwtTokenGenerator, JwtTokenGenerator>();
 builder.Services.AddScoped<IAuthService, AuthService>();
+builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<ConvenienceStore.Application.Contracts.External.ICacheService, ConvenienceStore.Infrastructure.ExternalServices.Caching.RedisCacheService>();
 
 // Configure Redis
