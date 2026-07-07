@@ -64,19 +64,24 @@ public class AuthService : IAuthService
 
     public async Task<AuthResponse> SeedAdminAsync()
     {
-        var roles = await _roleRepository.GetAsync(r => r.RoleName == "System Admin");
-        var adminRole = roles.FirstOrDefault();
-
-        if (adminRole == null)
+        var defaultRoles = new List<string> { "System Admin", "Chain Director", "Store Manager", "Store Staff", "Warehouse Staff" };
+        var existingRoles = await _roleRepository.GetAllAsync();
+        
+        foreach (var roleName in defaultRoles)
         {
-            adminRole = new Role
+            if (!existingRoles.Any(r => r.RoleName == roleName))
             {
-                RoleName = "System Admin",
-                Description = "Administrator with full access"
-            };
-            await _roleRepository.AddAsync(adminRole);
-            await _unitOfWork.SaveChangesAsync();
+                await _roleRepository.AddAsync(new Role
+                {
+                    RoleName = roleName,
+                    Description = $"{roleName} role"
+                });
+            }
         }
+        await _unitOfWork.SaveChangesAsync();
+
+        var adminRole = (await _roleRepository.GetAsync(r => r.RoleName == "System Admin")).FirstOrDefault();
+        if (adminRole == null) throw new Exception("Admin role not found after seeding.");
 
         var users = await _userRepository.GetAsync(u => u.Username == "admin");
         var adminUser = users.FirstOrDefault();
