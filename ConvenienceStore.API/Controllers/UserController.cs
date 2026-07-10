@@ -1,3 +1,4 @@
+using ConvenienceStore.Application.DTOs.Common;
 using ConvenienceStore.Application.DTOs.User;
 using ConvenienceStore.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
@@ -18,12 +19,26 @@ public class UserController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAllUsers()
+    public async Task<IActionResult> GetUsers([FromQuery] QueryParameters query)
     {
         try
         {
-            var users = await _userService.GetAllUsersAsync();
-            return Ok(new { StatusCode = 200, Message = "Success", Data = users });
+            var pagedResult = await _userService.GetUsersAsync(query);
+            return Ok(new { StatusCode = 200, Message = "Success", Data = pagedResult });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { StatusCode = 400, Message = ex.Message });
+        }
+    }
+
+    [HttpGet("stats")]
+    public async Task<IActionResult> GetUserStats()
+    {
+        try
+        {
+            var stats = await _userService.GetUserStatsAsync();
+            return Ok(new { StatusCode = 200, Message = "Success", Data = stats });
         }
         catch (Exception ex)
         {
@@ -83,6 +98,34 @@ public class UserController : ControllerBase
         {
             await _userService.DeactivateUserAsync(id);
             return Ok(new { StatusCode = 200, Message = "MSG-05: Record has been deactivated successfully." });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { StatusCode = 400, Message = ex.Message });
+        }
+    }
+
+    [HttpPut("{id}/activate")]
+    public async Task<IActionResult> ActivateUser(int id)
+    {
+        try
+        {
+            await _userService.ActivateUserAsync(id);
+            return Ok(new { StatusCode = 200, Message = "Record has been activated successfully." });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { StatusCode = 400, Message = ex.Message });
+        }
+    }
+
+    [HttpPost("{id}/reset-password")]
+    public async Task<IActionResult> ResetUserPassword(int id)
+    {
+        try
+        {
+            var newPassword = await _userService.ResetUserPasswordAsync(id);
+            return Ok(new { StatusCode = 200, Message = "Password has been reset successfully.", Data = new { newPassword } });
         }
         catch (Exception ex)
         {

@@ -13,19 +13,22 @@ public class AuthService : IAuthService
     private readonly IUnitOfWork _unitOfWork;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
     private readonly ConvenienceStore.Application.Contracts.External.ICacheService _cacheService;
+    private readonly IEmailService _emailService;
 
     public AuthService(
         IGenericRepository<User> userRepository,
         IGenericRepository<Role> roleRepository,
         IUnitOfWork unitOfWork,
         IJwtTokenGenerator jwtTokenGenerator,
-        ConvenienceStore.Application.Contracts.External.ICacheService cacheService)
+        ConvenienceStore.Application.Contracts.External.ICacheService cacheService,
+        IEmailService emailService)
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
         _unitOfWork = unitOfWork;
         _jwtTokenGenerator = jwtTokenGenerator;
         _cacheService = cacheService;
+        _emailService = emailService;
     }
 
     public async Task<AuthResponse> LoginAsync(LoginRequest request)
@@ -170,5 +173,48 @@ public class AuthService : IAuthService
         {
             await _cacheService.SetAsync($"blacklist:{jti}", "true", remainingTime);
         }
+    }
+
+    public async Task ForgotPasswordAsync(ForgotPasswordRequestDto request)
+    {
+        var users = await _userRepository.GetAsync(x => x.Email == request.Email && x.IsActive);
+        var user = users.FirstOrDefault();
+        
+        if (user == null)
+            throw new Exception("User not found or inactive.");
+
+        var random = new Random();
+        var otp = random.Next(100000, 999999).ToString();
+
+        user.PasswordResetToken = otp;
+        user.PasswordResetTokenExpires = DateTime.UtcNow.AddMinutes(15);
+
+        _userRepository.Update(user);
+        await _unitOfWork.SaveChangesAsync();
+
+        var subject = "Your Password Reset OTP";
+        var body = $"<p>Hi {user.FullName},</p><p>Your OTP to reset password is: <strong>{otp}</strong>. It will expire in 15 minutes.</p>";
+        await _emailService.SendEmailAsync(user.Email!, subject, body);
+    }
+
+    public async Task ResetPasswordAsync(ResetPasswordRequestDto request)
+    {
+        var users = await _userRepository.GetAsync(x => x.Email == request.Email && x.IsActive);
+        var user = users.FirstOrDefault();
+
+        if (user == null)
+            throw new Exception("User not found or inactive.");
+
+        if (user.PasswordResetToken != request.Otp || user.PasswordResetTokenExpires < DateTime.UtcNow)
+        {
+            throw new Exception("Invalid or expired OTP.");
+        }
+
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+        user.PasswordResetToken = null;
+        user.PasswordResetTokenExpires = null;
+
+        _userRepository.Update(user);
+        await _unitOfWork.SaveChangesAsync();
     }
 }
