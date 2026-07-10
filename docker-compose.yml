@@ -10,6 +10,32 @@ services:
     volumes:
       - redis_data:/data
     restart: always
+    networks:
+      - cstore_network
+
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: convenience_store_api
+    ports:
+      - "8080:8080"
+      - "8081:8081"
+    depends_on:
+      - redis
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      # Use host.docker.internal to connect to SQL Server running on Windows host
+      - ConnectionStrings__MyCnn=server=host.docker.internal;database=ConvenientStoreChainDB;uid=sa;pwd=123;TrustServerCertificate=True
+      # Connect to Redis container via its service name
+      - RedisConnection=redis:6379,password=redis123
+    restart: always
+    networks:
+      - cstore_network
 
 volumes:
   redis_data:
+
+networks:
+  cstore_network:
+    driver: bridge
