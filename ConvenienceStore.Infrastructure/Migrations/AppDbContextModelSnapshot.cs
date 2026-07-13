@@ -415,6 +415,11 @@ namespace ConvenienceStore.Infrastructure.Migrations
                     b.Property<int>("CategoryId")
                         .HasColumnType("int");
 
+                    b.Property<int>("ConversionFactor")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(1);
+
                     b.Property<decimal>("CostPrice")
                         .ValueGeneratedOnAdd()
                         .HasColumnType("decimal(18,2)")
@@ -422,6 +427,16 @@ namespace ConvenienceStore.Infrastructure.Migrations
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("ImageUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
+                    b.Property<string>("ImportUnit")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasDefaultValue("Cái");
 
                     b.Property<bool>("IsActive")
                         .ValueGeneratedOnAdd()
@@ -440,6 +455,12 @@ namespace ConvenienceStore.Infrastructure.Migrations
 
                     b.Property<int?>("SupplierId")
                         .HasColumnType("int");
+
+                    b.Property<string>("Unit")
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)")
+                        .HasDefaultValue("Cái");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("datetime2");

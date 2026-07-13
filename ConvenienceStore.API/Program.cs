@@ -27,6 +27,10 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ConvenienceStore.Application.Contracts.External.ICacheService, ConvenienceStore.Infrastructure.ExternalServices.Caching.RedisCacheService>();
+builder.Services.AddScoped<ConvenienceStore.Application.Services.Interfaces.ICategoryService, ConvenienceStore.Application.Services.CategoryService>();
+builder.Services.AddScoped<ConvenienceStore.Application.Services.Interfaces.IProductService, ConvenienceStore.Application.Services.ProductService>();
+builder.Services.AddScoped<ConvenienceStore.Application.Services.Interfaces.IBranchService, ConvenienceStore.Application.Services.BranchService>();
+builder.Services.AddScoped<ConvenienceStore.Application.Services.Interfaces.ISupplierService, ConvenienceStore.Application.Services.SupplierService>();
 
 // Configure Redis
 builder.Services.AddStackExchangeRedisCache(options =>
