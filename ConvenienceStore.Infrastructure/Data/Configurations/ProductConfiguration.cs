@@ -18,6 +18,10 @@ public class ProductConfiguration : IEntityTypeConfiguration<Product>
         builder.Property(x => x.CostPrice).HasColumnType("decimal(18,2)").HasDefaultValue(0);
         builder.Property(x => x.SellingPrice).HasColumnType("decimal(18,2)").HasDefaultValue(0);
         builder.Property(x => x.IsActive).HasDefaultValue(true);
+        builder.Property(x => x.ImageUrl).HasMaxLength(500);
+        builder.Property(x => x.Unit).HasMaxLength(50).HasDefaultValue("Cái");
+        builder.Property(x => x.ImportUnit).HasMaxLength(50).HasDefaultValue("Cái");
+        builder.Property(x => x.ConversionFactor).HasDefaultValue(1);
 
         // Relationships
         builder.HasOne(x => x.Category)

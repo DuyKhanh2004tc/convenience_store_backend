@@ -30,7 +30,12 @@ builder.Services.AddScoped<IBranchOrderService, BranchOrderService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IRevenueReportJob, RevenueReportJob>();
+builder.Services.AddScoped<IEmailService, EmailService>();
 builder.Services.AddScoped<ConvenienceStore.Application.Contracts.External.ICacheService, ConvenienceStore.Infrastructure.ExternalServices.Caching.RedisCacheService>();
+builder.Services.AddScoped<ConvenienceStore.Application.Services.Interfaces.ICategoryService, ConvenienceStore.Application.Services.CategoryService>();
+builder.Services.AddScoped<ConvenienceStore.Application.Services.Interfaces.IProductService, ConvenienceStore.Application.Services.ProductService>();
+builder.Services.AddScoped<ConvenienceStore.Application.Services.Interfaces.IBranchService, ConvenienceStore.Application.Services.BranchService>();
+builder.Services.AddScoped<ConvenienceStore.Application.Services.Interfaces.ISupplierService, ConvenienceStore.Application.Services.SupplierService>();
 
 // Configure Hangfire
 builder.Services.AddHangfire(configuration => configuration
@@ -107,11 +112,12 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "ConvenienceStore.API", Version = "v1" });
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
-        Description = "JWT Authorization header using the Bearer scheme. Enter 'Bearer' [space] and then your token in the text input below. Example: 'Bearer 12345abcdef'",
+        Description = "JWT Authorization header using the Bearer scheme. Enter your token in the text input below.",
         Name = "Authorization",
         In = ParameterLocation.Header,
-        Type = SecuritySchemeType.ApiKey,
-        Scheme = "Bearer"
+        Type = SecuritySchemeType.Http,
+        Scheme = "bearer",
+        BearerFormat = "JWT"
     });
     c.AddSecurityRequirement(new OpenApiSecurityRequirement()
     {
@@ -141,6 +147,22 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<AppDbContext>();
+        await DbInitializer.InitializeAsync(context);
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "An error occurred seeding the DB.");
+    }
+}
+
+app.UseHttpsRedirection();
 app.UseCors("AllowFlutterApp");
 
 // Commented out HTTPS redirect to allow HTTP connections from Flutter during development
