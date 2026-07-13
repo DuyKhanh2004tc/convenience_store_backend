@@ -10,6 +10,10 @@ public class Product : BaseEntity
     public decimal CostPrice { get; set; }
     public decimal SellingPrice { get; set; }
     public bool IsActive { get; set; } = true;
+    public string? ImageUrl { get; set; }
+    public string? Unit { get; set; }
+    public string? ImportUnit { get; set; }
+    public int ConversionFactor { get; set; } = 1;
 
     // Navigation properties
     public virtual Category Category { get; set; } = null!;
