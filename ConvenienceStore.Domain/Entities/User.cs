@@ -13,6 +13,8 @@ public class User : BaseEntity
     public bool IsActive { get; set; } = true;
     public string? RefreshToken { get; set; }
     public DateTime? RefreshTokenExpiryTime { get; set; }
+    public string? PasswordResetToken { get; set; }
+    public DateTime? PasswordResetTokenExpires { get; set; }
 
     // Navigation properties
     public virtual Role Role { get; set; } = null!;

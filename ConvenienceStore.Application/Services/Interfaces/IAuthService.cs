@@ -8,4 +8,6 @@ public interface IAuthService
     Task<AuthResponse> SeedAdminAsync();
     Task<AuthResponse> RefreshTokenAsync(RefreshTokenRequest request);
     Task LogoutAsync(int userId, string jti, TimeSpan remainingTime);
+    Task ForgotPasswordAsync(ForgotPasswordRequestDto request);
+    Task ResetPasswordAsync(ResetPasswordRequestDto request);
 }

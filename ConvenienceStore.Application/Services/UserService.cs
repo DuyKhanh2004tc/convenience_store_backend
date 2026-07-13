@@ -1,4 +1,5 @@
 using ConvenienceStore.Application.Contracts.Persistence;
+using ConvenienceStore.Application.DTOs.Common;
 using ConvenienceStore.Application.DTOs.User;
 using ConvenienceStore.Application.Services.Interfaces;
 using ConvenienceStore.Domain.Entities;
@@ -24,13 +25,32 @@ public class UserService : IUserService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<IEnumerable<UserDto>> GetAllUsersAsync()
+    public async Task<PagedResult<UserDto>> GetUsersAsync(QueryParameters query)
     {
-        var users = await _userRepository.GetAllAsync();
+        var usersQuery = await _userRepository.GetAllAsync();
+        
+        if (!string.IsNullOrWhiteSpace(query.SearchTerm))
+        {
+            var search = query.SearchTerm.ToLower();
+            usersQuery = usersQuery.Where(u => 
+                u.FullName.ToLower().Contains(search) || 
+                u.Email.ToLower().Contains(search) ||
+                (u.Phone != null && u.Phone.Contains(search))
+            ).ToList();
+        }
+
+        var totalCount = usersQuery.Count();
+        
+        var pagedUsers = usersQuery
+            .OrderByDescending(u => u.CreatedAt)
+            .Skip((query.PageNumber - 1) * query.PageSize)
+            .Take(query.PageSize)
+            .ToList();
+
         var roles = await _roleRepository.GetAllAsync();
         var branches = await _branchRepository.GetAllAsync();
 
-        return users.Select(u => new UserDto
+        var userDtos = pagedUsers.Select(u => new UserDto
         {
             UserId = u.UserId,
             Username = u.Username,
@@ -43,7 +63,32 @@ public class UserService : IUserService
             BranchName = branches.FirstOrDefault(b => b.BranchId == u.BranchId)?.BranchName,
             IsActive = u.IsActive,
             CreatedAt = u.CreatedAt
-        });
+        }).ToList();
+
+        return new PagedResult<UserDto>
+        {
+            Items = userDtos,
+            TotalCount = totalCount,
+            PageNumber = query.PageNumber,
+            PageSize = query.PageSize
+        };
+    }
+
+    public async Task<UserStatsDto> GetUserStatsAsync()
+    {
+        var allUsers = await _userRepository.GetAllAsync();
+        var allRoles = await _roleRepository.GetAllAsync();
+        
+        var storeManagerRole = allRoles.FirstOrDefault(r => r.RoleName.ToLower().Contains("manager"));
+        var storeManagerRoleId = storeManagerRole?.RoleId ?? -1;
+
+        return new UserStatsDto
+        {
+            TotalUsers = allUsers.Count(),
+            ActiveUsers = allUsers.Count(u => u.IsActive),
+            StoreManagers = allUsers.Count(u => u.RoleId == storeManagerRoleId),
+            LeaveRequests = 14 // Mocked as per template for now
+        };
     }
 
     public async Task<UserDto?> GetUserByIdAsync(int id)
@@ -214,5 +259,69 @@ public class UserService : IUserService
 
         _userRepository.Update(user);
         await _unitOfWork.SaveChangesAsync();
+    }
+
+    public async Task ActivateUserAsync(int id)
+    {
+        var user = await _userRepository.GetByIdAsync(id);
+        if (user == null)
+            throw new Exception("User not found.");
+
+        user.IsActive = true;
+        
+        _userRepository.Update(user);
+        await _unitOfWork.SaveChangesAsync();
+    }
+
+    public async Task<string> ResetUserPasswordAsync(int id)
+    {
+        var user = await _userRepository.GetByIdAsync(id);
+        if (user == null)
+            throw new Exception("User not found.");
+
+        string newPassword = GenerateRandomPassword();
+        user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(newPassword);
+
+        // Also invalidate their refresh token so they have to login with new password
+        user.RefreshToken = null;
+        user.RefreshTokenExpiryTime = null;
+
+        _userRepository.Update(user);
+        await _unitOfWork.SaveChangesAsync();
+
+        return newPassword;
+    }
+
+    private string GenerateRandomPassword()
+    {
+        const string upperCase = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+        const string lowerCase = "abcdefghijklmnopqrstuvwxyz";
+        const string digits = "0123456789";
+        const string specialChars = "!@#$%^&*";
+
+        var random = new Random();
+        var passwordChars = new char[8];
+
+        // Ensure at least one of each required type
+        passwordChars[0] = upperCase[random.Next(upperCase.Length)];
+        passwordChars[1] = digits[random.Next(digits.Length)];
+        passwordChars[2] = specialChars[random.Next(specialChars.Length)];
+
+        const string allChars = upperCase + lowerCase + digits + specialChars;
+        for (int i = 3; i < 8; i++)
+        {
+            passwordChars[i] = allChars[random.Next(allChars.Length)];
+        }
+
+        // Shuffle the characters
+        for (int i = 0; i < passwordChars.Length; i++)
+        {
+            int swapIndex = random.Next(passwordChars.Length);
+            var temp = passwordChars[i];
+            passwordChars[i] = passwordChars[swapIndex];
+            passwordChars[swapIndex] = temp;
+        }
+
+        return new string(passwordChars);
     }
 }
