@@ -10,6 +10,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.IdentityModel.Tokens;
 using Microsoft.OpenApi.Models;
 using System.Text;
+using System.Text.Json.Serialization;
 using Hangfire;
 using ConvenienceStore.Infrastructure.BackgroundJobs;
 var builder = WebApplication.CreateBuilder(args);
@@ -37,6 +38,18 @@ builder.Services.AddScoped<ConvenienceStore.Application.Services.Interfaces.IPro
 builder.Services.AddScoped<ConvenienceStore.Application.Services.Interfaces.IBranchService, ConvenienceStore.Application.Services.BranchService>();
 builder.Services.AddScoped<ConvenienceStore.Application.Services.Interfaces.ISupplierService, ConvenienceStore.Application.Services.SupplierService>();
 
+// Phase 1: Warehouse Inventory & Orders
+builder.Services.AddScoped<IWarehouseInventoryService, WarehouseInventoryService>();
+builder.Services.AddScoped<IPurchaseOrderService, PurchaseOrderService>();
+builder.Services.AddScoped<IGoodsReceiptService, GoodsReceiptService>();
+builder.Services.AddScoped<INotificationService, NotificationService>();
+
+// Phase 2: Branch Inventory
+builder.Services.AddScoped<IBranchInventoryService, BranchInventoryService>();
+
+// Phase 3: Notifications
+builder.Services.AddScoped<ConvenienceStore.Application.Contracts.External.IFcmService, ConvenienceStore.Infrastructure.ExternalServices.Fcm.FcmService>();
+builder.Services.AddHostedService<InventoryLowStockBackgroundService>();
 // Configure Hangfire
 builder.Services.AddHangfire(configuration => configuration
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
@@ -96,20 +109,26 @@ builder.Services.AddAuthentication(options =>
 // Configure CORS
 builder.Services.AddCors(options =>
 {
-    options.AddPolicy("AllowFlutterApp", policy =>
+    options.AddPolicy("AllowAll", policy =>
     {
-        policy.AllowAnyOrigin()
+        policy.SetIsOriginAllowed(_ => true)
               .AllowAnyMethod()
-              .AllowAnyHeader();
+              .AllowAnyHeader()
+              .AllowCredentials();
     });
 });
 
-builder.Services.AddControllers();
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddControllers()
+    .AddJsonOptions(options =>
+    {
+        options.JsonSerializerOptions.ReferenceHandler = ReferenceHandler.IgnoreCycles;
+    });
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
     c.SwaggerDoc("v1", new OpenApiInfo { Title = "ConvenienceStore.API", Version = "v1" });
+    
+    // Add JWT Authentication to Swagger
     c.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
     {
         Description = "JWT Authorization header using the Bearer scheme. Enter your token in the text input below.",
@@ -138,6 +157,8 @@ builder.Services.AddSwaggerGen(c =>
     });
 });
 
+builder.Services.AddSignalR();
+
 var app = builder.Build();
 
 // Configure the HTTP request pipeline.
@@ -163,7 +184,7 @@ using (var scope = app.Services.CreateScope())
 }
 
 app.UseHttpsRedirection();
-app.UseCors("AllowFlutterApp");
+app.UseCors("AllowAll");
 
 // Commented out HTTPS redirect to allow HTTP connections from Flutter during development
 // app.UseHttpsRedirection();
@@ -177,5 +198,6 @@ app.UseHangfireDashboard("/hangfire");
 RecurringJob.AddOrUpdate<IRevenueReportJob>("daily-revenue-job", job => job.CalculateDailyRevenueAsync(), "59 23 * * *", new RecurringJobOptions { TimeZone = TimeZoneInfo.Local });
 
 app.MapControllers();
+app.MapHub<ConvenienceStore.API.Hubs.InventoryHub>("/hubs/inventory");
 
 app.Run();
