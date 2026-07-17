@@ -8,10 +8,12 @@ namespace ConvenienceStore.Application.Services;
 
 public class InvoiceService : IInvoiceService
 {
-    // Loyalty configuration: every 100,000 VND spent = 1 point earned
-    private const decimal AMOUNT_PER_LOYALTY_POINT = 100_000m;
-    // Each loyalty point redeemed = 1,000 VND discount
-    private const decimal DISCOUNT_PER_POINT = 1_000m;
+    // Loyalty configuration: every 10,000 VND spent = 1 point earned
+    private const decimal AMOUNT_PER_LOYALTY_POINT = 10_000m;
+    // Each loyalty point redeemed = 100 VND discount
+    private const decimal DISCOUNT_PER_POINT = 100m;
+    // Minimum points required to be allowed to redeem
+    private const int MIN_POINTS_TO_REDEEM = 100;
 
     private readonly IGenericRepository<Invoice> _invoiceRepository;
     private readonly IGenericRepository<InvoiceDetail> _invoiceDetailRepository;
@@ -103,6 +105,9 @@ public class InvoiceService : IInvoiceService
 
         if (request.RedeemPoints > 0 && customer != null)
         {
+            if (customer.LoyaltyPoints < MIN_POINTS_TO_REDEEM)
+                throw new Exception($"Customer must have at least {MIN_POINTS_TO_REDEEM} points to redeem.");
+
             if (request.RedeemPoints > customer.LoyaltyPoints)
                 throw new Exception(
                     $"Customer does not have enough loyalty points. " +
