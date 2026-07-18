@@ -30,25 +30,66 @@ namespace ConvenienceStore.Infrastructure.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("AttendanceId"));
 
+                    b.Property<string>("CheckInIp")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<double?>("CheckInLatitude")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("CheckInLongitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("CheckInStatus")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<DateTime?>("CheckInTime")
                         .HasColumnType("datetime2");
+
+                    b.Property<string>("CheckInWifiBssid")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.Property<string>("CheckOutIp")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
+                    b.Property<double?>("CheckOutLatitude")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("CheckOutLongitude")
+                        .HasColumnType("float");
+
+                    b.Property<string>("CheckOutStatus")
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
 
                     b.Property<DateTime?>("CheckOutTime")
                         .HasColumnType("datetime2");
 
-                    b.Property<int>("EmployeeId")
+                    b.Property<int>("EarlyMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("LateMinutes")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int")
+                        .HasDefaultValue(0);
+
+                    b.Property<int>("ShiftAssignmentId")
                         .HasColumnType("int");
 
-                    b.Property<string>("Status")
-                        .HasMaxLength(50)
-                        .HasColumnType("nvarchar(50)");
-
-                    b.Property<DateTime>("WorkDate")
-                        .HasColumnType("date");
+                    b.Property<int?>("UserId")
+                        .HasColumnType("int");
 
                     b.HasKey("AttendanceId");
 
-                    b.HasIndex("EmployeeId");
+                    b.HasIndex("ShiftAssignmentId")
+                        .IsUnique();
+
+                    b.HasIndex("UserId");
 
                     b.ToTable("Attendances", (string)null);
                 });
@@ -65,6 +106,10 @@ namespace ConvenienceStore.Infrastructure.Migrations
                         .HasMaxLength(500)
                         .HasColumnType("nvarchar(500)");
 
+                    b.Property<string>("AllowedWifiBssid")
+                        .HasMaxLength(500)
+                        .HasColumnType("nvarchar(500)");
+
                     b.Property<string>("BranchName")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -77,6 +122,12 @@ namespace ConvenienceStore.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
+
+                    b.Property<double?>("Latitude")
+                        .HasColumnType("float");
+
+                    b.Property<double?>("Longitude")
+                        .HasColumnType("float");
 
                     b.Property<string>("Phone")
                         .HasMaxLength(20)
@@ -607,14 +658,20 @@ namespace ConvenienceStore.Infrastructure.Migrations
                     b.Property<int>("ShiftId")
                         .HasColumnType("int");
 
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("nvarchar(50)");
+
                     b.Property<DateTime>("WorkDate")
                         .HasColumnType("date");
 
                     b.HasKey("AssignmentId");
 
-                    b.HasIndex("EmployeeId");
-
                     b.HasIndex("ShiftId");
+
+                    b.HasIndex("EmployeeId", "ShiftId", "WorkDate")
+                        .IsUnique();
 
                     b.ToTable("ShiftAssignments", (string)null);
                 });
@@ -692,6 +749,9 @@ namespace ConvenienceStore.Infrastructure.Migrations
                         .HasColumnType("bit")
                         .HasDefaultValue(true);
 
+                    b.Property<DateTime?>("JoinDate")
+                        .HasColumnType("date");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasMaxLength(255)
@@ -706,6 +766,10 @@ namespace ConvenienceStore.Infrastructure.Migrations
                     b.Property<string>("Phone")
                         .HasMaxLength(20)
                         .HasColumnType("nvarchar(20)");
+
+                    b.Property<string>("Position")
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
 
                     b.Property<string>("RefreshToken")
                         .HasColumnType("nvarchar(max)");
@@ -756,13 +820,17 @@ namespace ConvenienceStore.Infrastructure.Migrations
 
             modelBuilder.Entity("ConvenienceStore.Domain.Entities.Attendance", b =>
                 {
-                    b.HasOne("ConvenienceStore.Domain.Entities.User", "Employee")
-                        .WithMany()
-                        .HasForeignKey("EmployeeId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                    b.HasOne("ConvenienceStore.Domain.Entities.ShiftAssignment", "ShiftAssignment")
+                        .WithOne("Attendance")
+                        .HasForeignKey("ConvenienceStore.Domain.Entities.Attendance", "ShiftAssignmentId")
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.Navigation("Employee");
+                    b.HasOne("ConvenienceStore.Domain.Entities.User", null)
+                        .WithMany("Attendances")
+                        .HasForeignKey("UserId");
+
+                    b.Navigation("ShiftAssignment");
                 });
 
             modelBuilder.Entity("ConvenienceStore.Domain.Entities.BranchInventory", b =>
@@ -986,7 +1054,7 @@ namespace ConvenienceStore.Infrastructure.Migrations
             modelBuilder.Entity("ConvenienceStore.Domain.Entities.ShiftAssignment", b =>
                 {
                     b.HasOne("ConvenienceStore.Domain.Entities.User", "Employee")
-                        .WithMany()
+                        .WithMany("ShiftAssignments")
                         .HasForeignKey("EmployeeId")
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
@@ -994,7 +1062,7 @@ namespace ConvenienceStore.Infrastructure.Migrations
                     b.HasOne("ConvenienceStore.Domain.Entities.Shift", "Shift")
                         .WithMany("ShiftAssignments")
                         .HasForeignKey("ShiftId")
-                        .OnDelete(DeleteBehavior.Cascade)
+                        .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
                     b.Navigation("Employee");
@@ -1086,11 +1154,23 @@ namespace ConvenienceStore.Infrastructure.Migrations
                     b.Navigation("ShiftAssignments");
                 });
 
+            modelBuilder.Entity("ConvenienceStore.Domain.Entities.ShiftAssignment", b =>
+                {
+                    b.Navigation("Attendance");
+                });
+
             modelBuilder.Entity("ConvenienceStore.Domain.Entities.Supplier", b =>
                 {
                     b.Navigation("Products");
 
                     b.Navigation("PurchaseOrders");
+                });
+
+            modelBuilder.Entity("ConvenienceStore.Domain.Entities.User", b =>
+                {
+                    b.Navigation("Attendances");
+
+                    b.Navigation("ShiftAssignments");
                 });
 #pragma warning restore 612, 618
         }

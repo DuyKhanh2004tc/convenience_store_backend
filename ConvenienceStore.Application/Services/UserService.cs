@@ -120,14 +120,14 @@ public class UserService : IUserService
         // 1. Validate Username uniqueness
         var existingUsername = await _userRepository.GetAsync(u => u.Username == request.Username);
         if (existingUsername.Any())
-            throw new Exception("Username already exists."); // In production, throw custom exceptions to return specific status codes
+            throw new Exception("Tên đăng nhập đã tồn tại.");
 
         // 2. Validate Phone uniqueness (BR-13)
         if (!string.IsNullOrEmpty(request.Phone))
         {
             var existingPhone = await _userRepository.GetAsync(u => u.Phone == request.Phone);
             if (existingPhone.Any())
-                throw new Exception("MSG-16: Phone number already exists.");
+                throw new Exception("Số điện thoại đã được sử dụng.");
         }
 
         // 3. Validate Email uniqueness
@@ -135,13 +135,13 @@ public class UserService : IUserService
         {
             var existingEmail = await _userRepository.GetAsync(u => u.Email == request.Email);
             if (existingEmail.Any())
-                throw new Exception("MSG-15: Email already exists.");
+                throw new Exception("Email đã được sử dụng.");
         }
 
         // 4. Validate Role
         var role = await _roleRepository.GetByIdAsync(request.RoleId);
         if (role == null)
-            throw new Exception("Role does not exist.");
+            throw new Exception("Vai trò được chọn không tồn tại.");
 
         // 5. Validate Branch if provided
         Branch? branch = null;
@@ -149,7 +149,7 @@ public class UserService : IUserService
         {
             branch = await _branchRepository.GetByIdAsync(request.BranchId.Value);
             if (branch == null)
-                throw new Exception("Branch does not exist.");
+                throw new Exception("Chi nhánh được chọn không tồn tại.");
         }
 
         var newUser = new User
@@ -194,7 +194,7 @@ public class UserService : IUserService
         {
             var existingPhone = await _userRepository.GetAsync(u => u.Phone == request.Phone && u.UserId != id);
             if (existingPhone.Any())
-                throw new Exception("MSG-16: Phone number already exists.");
+                throw new Exception("Số điện thoại đã được sử dụng.");
         }
 
         // Validate Email uniqueness
@@ -202,13 +202,13 @@ public class UserService : IUserService
         {
             var existingEmail = await _userRepository.GetAsync(u => u.Email == request.Email && u.UserId != id);
             if (existingEmail.Any())
-                throw new Exception("MSG-15: Email already exists.");
+                throw new Exception("Email đã được sử dụng.");
         }
 
         // Validate Role
         var role = await _roleRepository.GetByIdAsync(request.RoleId);
         if (role == null)
-            throw new Exception("Role does not exist.");
+            throw new Exception("Vai trò được chọn không tồn tại.");
 
         // Validate Branch if provided
         Branch? branch = null;
@@ -216,7 +216,7 @@ public class UserService : IUserService
         {
             branch = await _branchRepository.GetByIdAsync(request.BranchId.Value);
             if (branch == null)
-                throw new Exception("Branch does not exist.");
+                throw new Exception("Chi nhánh được chọn không tồn tại.");
         }
 
         user.FullName = request.FullName;
