@@ -34,6 +34,17 @@ public class ProductsController : ControllerBase
         return Ok(product);
     }
 
+    [HttpGet("barcode/{barcode}")]
+    public async Task<IActionResult> GetByBarcode(string barcode)
+    {
+        var product = await _productService.GetProductByBarcodeAsync(barcode);
+        if (product == null)
+        {
+            return NotFound(new { message = "Product not found" });
+        }
+        return Ok(product);
+    }
+
     [HttpPost]
     [Authorize(Roles = "System Admin")]
     public async Task<IActionResult> Create([FromBody] CreateProductDto dto)
@@ -43,8 +54,15 @@ public class ProductsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var created = await _productService.CreateProductAsync(dto);
-        return CreatedAtAction(nameof(GetById), new { id = created.ProductId }, created);
+        try
+        {
+            var created = await _productService.CreateProductAsync(dto);
+            return CreatedAtAction(nameof(GetById), new { id = created.ProductId }, created);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpPut("{id}")]
@@ -56,13 +74,20 @@ public class ProductsController : ControllerBase
             return BadRequest(ModelState);
         }
 
-        var result = await _productService.UpdateProductAsync(id, dto);
-        if (!result)
+        try
         {
-            return NotFound(new { message = "Product not found" });
-        }
+            var result = await _productService.UpdateProductAsync(id, dto);
+            if (!result)
+            {
+                return NotFound(new { message = "Product not found" });
+            }
 
-        return Ok(new { message = "Product updated successfully" });
+            return Ok(new { message = "Product updated successfully" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 
     [HttpDelete("{id}")]
