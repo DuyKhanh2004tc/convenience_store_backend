@@ -11,15 +11,32 @@ public class AttendanceConfiguration : IEntityTypeConfiguration<Attendance>
         builder.ToTable("Attendances");
         builder.HasKey(x => x.AttendanceId);
 
-        builder.Property(x => x.WorkDate).HasColumnType("date").IsRequired();
-        
-        // Enum to string conversion
-        builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(50);
+        // Enum to string conversions
+        builder.Property(x => x.CheckInStatus).HasConversion<string>().HasMaxLength(50);
+        builder.Property(x => x.CheckOutStatus).HasConversion<string>().HasMaxLength(50);
 
-        // Relationships
-        builder.HasOne(x => x.Employee)
-            .WithMany()
-            .HasForeignKey(x => x.EmployeeId)
-            .OnDelete(DeleteBehavior.Cascade);
+        // Check-in location data
+        builder.Property(x => x.CheckInIp).HasMaxLength(50);
+        builder.Property(x => x.CheckInWifiBssid).HasMaxLength(100);
+        builder.Property(x => x.CheckInLatitude).HasColumnType("float");
+        builder.Property(x => x.CheckInLongitude).HasColumnType("float");
+
+        // Check-out location data
+        builder.Property(x => x.CheckOutIp).HasMaxLength(50);
+        builder.Property(x => x.CheckOutLatitude).HasColumnType("float");
+        builder.Property(x => x.CheckOutLongitude).HasColumnType("float");
+
+        // Timing
+        builder.Property(x => x.LateMinutes).HasDefaultValue(0);
+        builder.Property(x => x.EarlyMinutes).HasDefaultValue(0);
+
+        // 1-to-1 relationship with ShiftAssignment
+        builder.HasOne(x => x.ShiftAssignment)
+            .WithOne(sa => sa.Attendance)
+            .HasForeignKey<Attendance>(x => x.ShiftAssignmentId)
+            .OnDelete(DeleteBehavior.Restrict);
+
+        // Ensure one attendance per shift assignment
+        builder.HasIndex(x => x.ShiftAssignmentId).IsUnique();
     }
 }

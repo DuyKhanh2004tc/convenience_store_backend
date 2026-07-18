@@ -16,7 +16,13 @@ public class User : BaseEntity
     public string? PasswordResetToken { get; set; }
     public DateTime? PasswordResetTokenExpires { get; set; }
 
+    // Employee-specific fields
+    public string? Position { get; set; }
+    public DateTime? JoinDate { get; set; }
+
     // Navigation properties
     public virtual Role Role { get; set; } = null!;
     public virtual Branch? Branch { get; set; }
+    public virtual ICollection<ShiftAssignment> ShiftAssignments { get; set; } = new List<ShiftAssignment>();
+    public virtual ICollection<Attendance> Attendances { get; set; } = new List<Attendance>();
 }
