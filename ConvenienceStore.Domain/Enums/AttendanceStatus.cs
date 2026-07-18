@@ -2,8 +2,8 @@ namespace ConvenienceStore.Domain.Enums;
 
 public enum AttendanceStatus
 {
-    Present,
+    Ontime,
     Late,
-    Absent,
-    Completed
+    EarlyLeave,
+    Absent
 }

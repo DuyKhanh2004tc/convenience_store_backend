@@ -15,5 +15,12 @@ public class BranchConfiguration : IEntityTypeConfiguration<Branch>
         builder.Property(x => x.Address).HasMaxLength(500);
         builder.Property(x => x.Phone).HasMaxLength(20);
         builder.Property(x => x.IsActive).HasDefaultValue(true);
+
+        // GPS coordinates for attendance geo-fencing
+        builder.Property(x => x.Latitude).HasColumnType("float");
+        builder.Property(x => x.Longitude).HasColumnType("float");
+
+        // Allowed WiFi MAC addresses (comma-separated)
+        builder.Property(x => x.AllowedWifiBssid).HasMaxLength(500);
     }
 }

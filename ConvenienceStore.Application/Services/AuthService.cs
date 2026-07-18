@@ -60,6 +60,7 @@ public class AuthService : IAuthService
             Username = user.Username,
             FullName = user.FullName,
             RoleName = role.RoleName,
+            BranchId = user.BranchId,
             Token = tokens.AccessToken,
             RefreshToken = tokens.RefreshToken
         };
@@ -117,6 +118,7 @@ public class AuthService : IAuthService
             Username = adminUser.Username,
             FullName = adminUser.FullName,
             RoleName = adminRole.RoleName,
+            BranchId = adminUser.BranchId,
             Token = tokens.AccessToken,
             RefreshToken = tokens.RefreshToken
         };
@@ -152,6 +154,7 @@ public class AuthService : IAuthService
             Username = user.Username,
             FullName = user.FullName,
             RoleName = role.RoleName,
+            BranchId = user.BranchId,
             Token = tokens.AccessToken,
             RefreshToken = tokens.RefreshToken
         };

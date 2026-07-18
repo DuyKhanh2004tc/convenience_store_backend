@@ -13,15 +13,23 @@ public class ShiftAssignmentConfiguration : IEntityTypeConfiguration<ShiftAssign
 
         builder.Property(x => x.WorkDate).HasColumnType("date").IsRequired();
 
+        // Enum to string conversion
+        builder.Property(x => x.Status).HasConversion<string>().HasMaxLength(50);
+
+        // Prevent double-booking at the database level
+        builder.HasIndex(x => new { x.EmployeeId, x.ShiftId, x.WorkDate }).IsUnique();
+
         // Relationships
         builder.HasOne(x => x.Shift)
             .WithMany(s => s.ShiftAssignments)
             .HasForeignKey(x => x.ShiftId)
-            .OnDelete(DeleteBehavior.Cascade);
+            .OnDelete(DeleteBehavior.Restrict);
 
         builder.HasOne(x => x.Employee)
-            .WithMany()
+            .WithMany(u => u.ShiftAssignments)
             .HasForeignKey(x => x.EmployeeId)
             .OnDelete(DeleteBehavior.Restrict);
+
+        // 1-to-1 with Attendance (configured from Attendance side)
     }
 }

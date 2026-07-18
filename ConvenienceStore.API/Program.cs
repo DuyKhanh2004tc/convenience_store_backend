@@ -37,6 +37,11 @@ builder.Services.AddScoped<ConvenienceStore.Application.Services.Interfaces.IPro
 builder.Services.AddScoped<ConvenienceStore.Application.Services.Interfaces.IBranchService, ConvenienceStore.Application.Services.BranchService>();
 builder.Services.AddScoped<ConvenienceStore.Application.Services.Interfaces.ISupplierService, ConvenienceStore.Application.Services.SupplierService>();
 
+// HR, Shift Scheduling & Attendance Services
+builder.Services.AddScoped<IEmployeeService, EmployeeService>();
+builder.Services.AddScoped<IShiftService, ShiftService>();
+builder.Services.AddScoped<IAttendanceService, AttendanceService>();
+
 // Configure Hangfire
 builder.Services.AddHangfire(configuration => configuration
     .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
