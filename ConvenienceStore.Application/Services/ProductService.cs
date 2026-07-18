@@ -82,8 +82,45 @@ public class ProductService : IProductService
         };
     }
 
+    public async Task<ProductDto?> GetProductByBarcodeAsync(string barcode)
+    {
+        var products = await _productRepository.GetAsync(p => p.Barcode == barcode);
+        var p = products.FirstOrDefault();
+        if (p == null) return null;
+
+        var category = await _categoryRepository.GetByIdAsync(p.CategoryId);
+        var supplier = p.SupplierId.HasValue ? await _supplierRepository.GetByIdAsync(p.SupplierId.Value) : null;
+
+        return new ProductDto
+        {
+            ProductId = p.ProductId,
+            ProductName = p.ProductName,
+            CategoryId = p.CategoryId,
+            CategoryName = category?.CategoryName ?? string.Empty,
+            SupplierId = p.SupplierId,
+            SupplierName = supplier?.SupplierName,
+            Barcode = p.Barcode,
+            CostPrice = p.CostPrice,
+            SellingPrice = p.SellingPrice,
+            IsActive = p.IsActive,
+            ImageUrl = p.ImageUrl,
+            Unit = p.Unit,
+            ImportUnit = p.ImportUnit,
+            ConversionFactor = p.ConversionFactor
+        };
+    }
+
     public async Task<ProductDto> CreateProductAsync(CreateProductDto dto)
     {
+        if (!string.IsNullOrEmpty(dto.Barcode))
+        {
+            var existingWithBarcode = await _productRepository.GetAsync(p => p.Barcode == dto.Barcode);
+            if (existingWithBarcode.Any())
+            {
+                throw new Exception("Barcode already exists");
+            }
+        }
+
         var product = new Product
         {
             ProductName = dto.ProductName,
@@ -128,6 +165,15 @@ public class ProductService : IProductService
     {
         var product = await _productRepository.GetByIdAsync(id);
         if (product == null) return false;
+
+        if (!string.IsNullOrEmpty(dto.Barcode) && product.Barcode != dto.Barcode)
+        {
+            var existingWithBarcode = await _productRepository.GetAsync(p => p.Barcode == dto.Barcode);
+            if (existingWithBarcode.Any())
+            {
+                throw new Exception("Barcode already exists");
+            }
+        }
 
         product.ProductName = dto.ProductName;
         product.CategoryId = dto.CategoryId;
