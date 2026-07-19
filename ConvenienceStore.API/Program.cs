@@ -1,6 +1,7 @@
 using ConvenienceStore.Application.Contracts.Persistence;
 using ConvenienceStore.Application.Contracts.External;
 using ConvenienceStore.Application.Services;
+using ConvenienceStore.Application.Interfaces;
 using ConvenienceStore.Application.Services.Interfaces;
 using ConvenienceStore.Infrastructure.Data;
 using ConvenienceStore.Infrastructure.ExternalServices.Jwt;
@@ -29,6 +30,8 @@ builder.Services.AddScoped<IAuthService, AuthService>();
 builder.Services.AddScoped<IUserService, UserService>();
 builder.Services.AddScoped<IBranchOrderService, BranchOrderService>();
 builder.Services.AddScoped<IInvoiceService, InvoiceService>();
+builder.Services.AddScoped<IReportService, ReportService>();
+builder.Services.AddScoped<ISystemSettingService, SystemSettingService>();
 builder.Services.AddScoped<ICustomerService, CustomerService>();
 builder.Services.AddScoped<IRevenueReportJob, RevenueReportJob>();
 builder.Services.AddScoped<IEmailService, EmailService>();

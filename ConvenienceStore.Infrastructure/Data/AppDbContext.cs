@@ -31,11 +31,19 @@ public class AppDbContext : DbContext
     public DbSet<ShiftAssignment> ShiftAssignments => Set<ShiftAssignment>();
     public DbSet<Attendance> Attendances => Set<Attendance>();
     public DbSet<Notification> Notifications => Set<Notification>();
+    public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
         // Automatically apply all IEntityTypeConfiguration classes found in this assembly
         modelBuilder.ApplyConfigurationsFromAssembly(Assembly.GetExecutingAssembly());
+
+        // System Settings
+        modelBuilder.Entity<SystemSetting>()
+            .HasData(
+                new SystemSetting { SettingKey = "WarehouseLowStockThreshold", SettingValue = "50", Description = "Ngưỡng cảnh báo kho tổng" },
+                new SystemSetting { SettingKey = "BranchLowStockThreshold", SettingValue = "10", Description = "Ngưỡng cảnh báo chi nhánh" }
+            );
     }
 }

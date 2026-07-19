@@ -14,19 +14,49 @@ public class GenericRepository<T> : IGenericRepository<T> where T : class
         _dbContext = dbContext;
     }
 
-    public virtual async Task<T?> GetByIdAsync(int id)
+    public virtual async Task<T?> GetByIdAsync(int id, params string[] includes)
     {
+        IQueryable<T> query = _dbContext.Set<T>();
+        if (includes != null)
+        {
+            foreach (var include in includes)
+            {
+                query = query.Include(include);
+            }
+        }
+        var entityType = _dbContext.Model.FindEntityType(typeof(T));
+        var primaryKey = entityType?.FindPrimaryKey()?.Properties.FirstOrDefault();
+        if (primaryKey != null && includes != null && includes.Length > 0)
+        {
+            return await query.FirstOrDefaultAsync(e => EF.Property<int>(e, primaryKey.Name) == id);
+        }
         return await _dbContext.Set<T>().FindAsync(id);
     }
 
-    public async Task<IReadOnlyList<T>> GetAllAsync()
+    public async Task<IReadOnlyList<T>> GetAllAsync(params string[] includes)
     {
-        return await _dbContext.Set<T>().ToListAsync();
+        IQueryable<T> query = _dbContext.Set<T>();
+        if (includes != null)
+        {
+            foreach (var include in includes)
+            {
+                query = query.Include(include);
+            }
+        }
+        return await query.ToListAsync();
     }
 
-    public async Task<IReadOnlyList<T>> GetAsync(Expression<Func<T, bool>> predicate)
+    public async Task<IReadOnlyList<T>> GetAsync(Expression<Func<T, bool>> predicate, params string[] includes)
     {
-        return await _dbContext.Set<T>().Where(predicate).ToListAsync();
+        IQueryable<T> query = _dbContext.Set<T>().Where(predicate);
+        if (includes != null)
+        {
+            foreach (var include in includes)
+            {
+                query = query.Include(include);
+            }
+        }
+        return await query.ToListAsync();
     }
 
     public async Task<T> AddAsync(T entity)
