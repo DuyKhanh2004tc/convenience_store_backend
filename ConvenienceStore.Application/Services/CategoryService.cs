@@ -10,16 +10,19 @@ namespace ConvenienceStore.Application.Services;
 public class CategoryService : ICategoryService
 {
     private readonly IGenericRepository<Category> _categoryRepository;
+    private readonly IGenericRepository<Product> _productRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly ICacheService _cacheService;
     private const string CacheKey = "all_categories";
 
     public CategoryService(
         IGenericRepository<Category> categoryRepository,
+        IGenericRepository<Product> productRepository,
         IUnitOfWork unitOfWork,
         ICacheService cacheService)
     {
         _categoryRepository = categoryRepository;
+        _productRepository = productRepository;
         _unitOfWork = unitOfWork;
         _cacheService = cacheService;
     }
@@ -35,11 +38,14 @@ public class CategoryService : ICategoryService
 
         // Fetch from database
         var categories = await _categoryRepository.GetAllAsync();
+        var allProducts = await _productRepository.GetAllAsync();
+        
         var dtos = categories.Select(c => new CategoryDto
         {
             CategoryId = c.CategoryId,
             CategoryName = c.CategoryName,
-            Description = c.Description
+            Description = c.Description,
+            ProductCount = allProducts.Count(p => p.CategoryId == c.CategoryId)
         }).ToList();
 
         // Save to cache
