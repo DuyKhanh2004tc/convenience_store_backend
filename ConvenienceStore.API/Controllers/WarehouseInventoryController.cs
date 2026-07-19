@@ -41,4 +41,22 @@ public class WarehouseInventoryController : ControllerBase
         var result = await _service.GetLowStockProductsAsync(threshold);
         return Ok(result);
     }
+
+    [HttpPost("adjust")]
+    public async Task<IActionResult> AdjustStock([FromBody] StockAdjustmentRequest request)
+    {
+        try
+        {
+            var result = await _service.AdjustStockAsync(request, User);
+            return Ok(result);
+        }
+        catch (UnauthorizedAccessException ex)
+        {
+            return Forbid(ex.Message);
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
+    }
 }
