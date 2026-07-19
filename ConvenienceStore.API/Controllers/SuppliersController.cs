@@ -7,6 +7,7 @@ namespace ConvenienceStore.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class SuppliersController : ControllerBase
 {
     private readonly ISupplierService _supplierService;
@@ -35,7 +36,7 @@ public class SuppliersController : ControllerBase
     }
 
     [HttpPost]
-    [Authorize(Roles = "System Admin")]
+    [Authorize(Roles = "System Admin, Chain Director")]
     public async Task<IActionResult> Create([FromBody] CreateSupplierDto dto)
     {
         if (!ModelState.IsValid)
@@ -48,7 +49,7 @@ public class SuppliersController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = "System Admin")]
+    [Authorize(Roles = "System Admin, Chain Director")]
     public async Task<IActionResult> Update(int id, [FromBody] CreateSupplierDto dto)
     {
         if (!ModelState.IsValid)
@@ -66,7 +67,7 @@ public class SuppliersController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = "System Admin")]
+    [Authorize(Roles = "System Admin, Chain Director")]
     public async Task<IActionResult> Delete(int id)
     {
         var result = await _supplierService.DeleteSupplierAsync(id);
