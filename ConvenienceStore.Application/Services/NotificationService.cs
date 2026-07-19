@@ -1,6 +1,7 @@
 using ConvenienceStore.Application.Contracts.Persistence;
 using ConvenienceStore.Application.DTOs.Notification;
 using ConvenienceStore.Application.Services.Interfaces;
+using ConvenienceStore.Application.Contracts.External;
 using ConvenienceStore.Domain.Entities;
 
 namespace ConvenienceStore.Application.Services;
@@ -8,13 +9,22 @@ namespace ConvenienceStore.Application.Services;
 public class NotificationService : INotificationService
 {
     private readonly IGenericRepository<Notification> _notificationRepository;
+    private readonly IGenericRepository<User> _userRepository;
+    private readonly IGenericRepository<Role> _roleRepository;
+    private readonly INotificationBroadcaster _broadcaster;
     private readonly IUnitOfWork _unitOfWork;
 
     public NotificationService(
         IGenericRepository<Notification> notificationRepository,
+        IGenericRepository<User> userRepository,
+        IGenericRepository<Role> roleRepository,
+        INotificationBroadcaster broadcaster,
         IUnitOfWork unitOfWork)
     {
         _notificationRepository = notificationRepository;
+        _userRepository = userRepository;
+        _roleRepository = roleRepository;
+        _broadcaster = broadcaster;
         _unitOfWork = unitOfWork;
     }
 
@@ -36,6 +46,66 @@ public class NotificationService : INotificationService
 
         await _notificationRepository.AddAsync(notification);
         await _unitOfWork.SaveChangesAsync();
+
+        var notificationDto = new NotificationDto
+        {
+            NotificationId = notification.NotificationId,
+            UserId = notification.UserId,
+            Title = notification.Title,
+            Message = notification.Message,
+            IsRead = notification.IsRead,
+            CreatedAt = notification.CreatedAt
+        };
+        await _broadcaster.BroadcastToUserAsync(userId, notificationDto);
+    }
+
+    public async Task CreateAlertForRolesAsync(List<string> roleNames, string title, string message)
+    {
+        if (title.Length > 255)
+        {
+            title = title[..255];
+        }
+
+        var roles = await _roleRepository.GetAsync(r => roleNames.Contains(r.RoleName));
+        var roleIds = roles.Select(r => r.RoleId).ToList();
+
+        if (!roleIds.Any()) return;
+
+        var users = await _userRepository.GetAsync(u => roleIds.Contains(u.RoleId) && u.IsActive);
+        
+        foreach (var user in users)
+        {
+            var notification = new Notification
+            {
+                UserId = user.UserId,
+                Title = title,
+                Message = message,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            
+            await _notificationRepository.AddAsync(notification);
+        }
+        
+        await _unitOfWork.SaveChangesAsync();
+
+        // Broadcast separately after all DB updates are committed
+        foreach (var user in users)
+        {
+            // We fetch the latest notification Id. Since it was just saved, we can query it.
+            // Or just broadcast the DTO without accurate ID if we don't query it.
+            // For simplicity, we just send a reload signal or partial DTO.
+            var dto = new NotificationDto
+            {
+                NotificationId = 0, // Frontend will usually re-fetch if they want full details, but let's just pass 0
+                UserId = user.UserId,
+                Title = title,
+                Message = message,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _broadcaster.BroadcastToUserAsync(user.UserId, dto);
+        }
     }
 
     public async Task<NotificationListDto> GetNotificationsAsync(int userId, int page, int pageSize)

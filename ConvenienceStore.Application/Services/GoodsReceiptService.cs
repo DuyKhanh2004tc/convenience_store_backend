@@ -165,11 +165,20 @@ public class GoodsReceiptService : IGoodsReceiptService
         var receiver = await _userRepository.GetByIdAsync(receipt.ReceivedBy);
         var details = await _receiptDetailRepository.GetAsync(d => d.ReceiptId == receipt.ReceiptId);
 
-        var itemDtos = details.Select(d => new GoodsReceiptItemDto
+        var itemDtos = new List<GoodsReceiptItemDto>();
+        foreach (var d in details)
         {
-            ProductId = d.ProductId,
-            QuantityReceived = d.QuantityReceived
-        }).ToList();
+            var product = await _productRepository.GetByIdAsync(d.ProductId);
+            itemDtos.Add(new GoodsReceiptItemDto
+            {
+                ProductId = d.ProductId,
+                ProductName = product?.ProductName ?? "",
+                QuantityReceived = d.QuantityReceived,
+                Unit = product?.Unit,
+                ImportUnit = product?.ImportUnit,
+                ConversionFactor = product?.ConversionFactor ?? 1
+            });
+        }
 
         return new GoodsReceiptDto
         {

@@ -302,7 +302,10 @@ public class BranchOrderService : IBranchOrderService
             {
                 ProductId = detail.ProductId,
                 ProductName = product?.ProductName ?? "",
-                Quantity = detail.Quantity
+                Quantity = detail.Quantity,
+                Unit = product?.Unit,
+                ImportUnit = product?.ImportUnit,
+                ConversionFactor = product?.ConversionFactor ?? 1
             });
         }
 
