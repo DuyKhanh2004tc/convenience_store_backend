@@ -176,6 +176,10 @@ public class BranchInventoryService : IBranchInventoryService
         var branch = await _branchRepository.GetByIdAsync(branchId);
         var branchName = branch?.BranchName ?? $"Unknown Branch ({branchId})";
 
+        // Validate branch is active
+        if (branch == null || !branch.IsActive)
+            throw new Exception("Chi nhánh đã ngừng hoạt động. Không thể điều chỉnh tồn kho.");
+
         var result = new StockAdjustmentResultDto
         {
             BranchId = branchId,
@@ -209,6 +213,10 @@ public class BranchInventoryService : IBranchInventoryService
 
                 var product = await _productRepository.GetByIdAsync(item.ProductId);
                 var productName = product?.ProductName ?? $"Unknown Product ({item.ProductId})";
+
+                // Validate: cannot increase stock for deactivated products
+                if (product != null && !product.IsActive && delta > 0)
+                    throw new Exception($"Không thể tăng tồn kho cho sản phẩm '{productName}' đã ngừng kinh doanh.");
 
                 var title = $"Stock Adjustment - {productName}";
                 if (title.Length > 255) title = title[..255];

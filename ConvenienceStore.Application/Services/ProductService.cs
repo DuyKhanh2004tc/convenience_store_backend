@@ -1,4 +1,6 @@
+using ConvenienceStore.Application.Contracts.External;
 using ConvenienceStore.Application.Contracts.Persistence;
+using ConvenienceStore.Application.DTOs.Common;
 using ConvenienceStore.Application.DTOs.Product;
 using ConvenienceStore.Application.Services.Interfaces;
 using ConvenienceStore.Domain.Entities;
@@ -11,20 +13,23 @@ public class ProductService : IProductService
     private readonly IGenericRepository<Category> _categoryRepository;
     private readonly IGenericRepository<Supplier> _supplierRepository;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ICacheService _cacheService;
 
     public ProductService(
         IGenericRepository<Product> productRepository,
         IGenericRepository<Category> categoryRepository,
         IGenericRepository<Supplier> supplierRepository,
-        IUnitOfWork unitOfWork)
+        IUnitOfWork unitOfWork,
+        ICacheService cacheService)
     {
         _productRepository = productRepository;
         _categoryRepository = categoryRepository;
         _supplierRepository = supplierRepository;
         _unitOfWork = unitOfWork;
+        _cacheService = cacheService;
     }
 
-    public async Task<IEnumerable<ProductDto>> GetAllProductsAsync(string? search = null, int? categoryId = null)
+    public async Task<PagedResult<ProductDto>> GetAllProductsAsync(string? search = null, int? categoryId = null, int page = 1, int pageSize = 10)
     {
         // Fetch products matching filter criteria
         var products = await _productRepository.GetAsync(p =>
@@ -32,11 +37,14 @@ public class ProductService : IProductService
             (!categoryId.HasValue || p.CategoryId == categoryId.Value)
         );
 
+        int totalCount = products.Count();
+        var pagedProducts = products.Skip((page - 1) * pageSize).Take(pageSize);
+
         // Fetch categories and suppliers to populate names in memory
         var categories = (await _categoryRepository.GetAllAsync()).ToDictionary(c => c.CategoryId, c => c.CategoryName);
         var suppliers = (await _supplierRepository.GetAllAsync()).ToDictionary(s => s.SupplierId, s => s.SupplierName);
 
-        return products.Select(p => new ProductDto
+        var items = pagedProducts.Select(p => new ProductDto
         {
             ProductId = p.ProductId,
             ProductName = p.ProductName,
@@ -53,6 +61,14 @@ public class ProductService : IProductService
             ImportUnit = p.ImportUnit,
             ConversionFactor = p.ConversionFactor
         }).ToList();
+
+        return new PagedResult<ProductDto>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = page,
+            PageSize = pageSize
+        };
     }
 
     public async Task<ProductDto?> GetProductByIdAsync(int id)
@@ -138,6 +154,7 @@ public class ProductService : IProductService
 
         var created = await _productRepository.AddAsync(product);
         await _unitOfWork.SaveChangesAsync();
+        await _cacheService.RemoveAsync("all_categories");
 
         var category = await _categoryRepository.GetByIdAsync(created.CategoryId);
         var supplier = created.SupplierId.HasValue ? await _supplierRepository.GetByIdAsync(created.SupplierId.Value) : null;
@@ -189,6 +206,7 @@ public class ProductService : IProductService
 
         _productRepository.Update(product);
         await _unitOfWork.SaveChangesAsync();
+        await _cacheService.RemoveAsync("all_categories");
 
         return true;
     }
@@ -200,6 +218,7 @@ public class ProductService : IProductService
 
         _productRepository.Delete(product);
         await _unitOfWork.SaveChangesAsync();
+        await _cacheService.RemoveAsync("all_categories");
 
         return true;
     }

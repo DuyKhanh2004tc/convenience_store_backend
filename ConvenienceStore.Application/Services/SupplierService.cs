@@ -1,4 +1,5 @@
 using ConvenienceStore.Application.Contracts.Persistence;
+using ConvenienceStore.Application.DTOs.Common;
 using ConvenienceStore.Application.DTOs.Supplier;
 using ConvenienceStore.Application.Services.Interfaces;
 using ConvenienceStore.Domain.Entities;
@@ -18,10 +19,14 @@ public class SupplierService : ISupplierService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<IEnumerable<SupplierDto>> GetAllSuppliersAsync()
+    public async Task<PagedResult<SupplierDto>> GetAllSuppliersAsync(int page = 1, int pageSize = 10)
     {
-        var suppliers = await _supplierRepository.GetAllAsync();
-        return suppliers.Select(s => new SupplierDto
+        var allSuppliers = await _supplierRepository.GetAllAsync();
+        
+        int totalCount = allSuppliers.Count();
+        var pagedSuppliers = allSuppliers.Skip((page - 1) * pageSize).Take(pageSize);
+
+        var items = pagedSuppliers.Select(s => new SupplierDto
         {
             SupplierId = s.SupplierId,
             SupplierName = s.SupplierName,
@@ -31,6 +36,14 @@ public class SupplierService : ISupplierService
             Address = s.Address,
             IsActive = s.IsActive
         }).ToList();
+
+        return new PagedResult<SupplierDto>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = page,
+            PageSize = pageSize
+        };
     }
 
     public async Task<SupplierDto?> GetSupplierByIdAsync(int id)
@@ -97,8 +110,13 @@ public class SupplierService : ISupplierService
 
     public async Task<bool> DeleteSupplierAsync(int id)
     {
-        var supplier = await _supplierRepository.GetByIdAsync(id);
+        var supplier = await _supplierRepository.GetByIdAsync(id, "Products", "PurchaseOrders");
         if (supplier == null) return false;
+
+        if (supplier.Products.Any() || supplier.PurchaseOrders.Any())
+        {
+            throw new Exception("Không thể xóa nhà cung cấp vì đã có dữ liệu ràng buộc (Sản phẩm, Đơn nhập hàng...). Vui lòng chỉ vô hiệu hóa (Ngừng cung cấp) nhà cung cấp này.");
+        }
 
         _supplierRepository.Delete(supplier);
         await _unitOfWork.SaveChangesAsync();

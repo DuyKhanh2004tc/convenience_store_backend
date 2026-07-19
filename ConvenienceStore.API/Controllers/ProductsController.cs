@@ -18,20 +18,20 @@ public class ProductsController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] int? categoryId)
+    public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] int? categoryId, [FromQuery] int page = 1, [FromQuery] int pageSize = 10)
     {
-        var products = await _productService.GetAllProductsAsync(search, categoryId);
+        var pagedResult = await _productService.GetAllProductsAsync(search, categoryId, page, pageSize);
 
         // Hide cost price for Store Staff and Store Manager to protect profit margin
         if (User.IsInRole("Store Staff") || User.IsInRole("Store Manager"))
         {
-            foreach (var p in products)
+            foreach (var p in pagedResult.Items)
             {
                 p.CostPrice = 0;
             }
         }
 
-        return Ok(products);
+        return Ok(pagedResult);
     }
 
     [HttpGet("{id}")]
