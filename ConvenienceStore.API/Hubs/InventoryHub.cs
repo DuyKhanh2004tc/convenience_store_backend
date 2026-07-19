@@ -24,6 +24,13 @@ public class InventoryHub : Hub
             await Groups.AddToGroupAsync(Context.ConnectionId, "role-store-manager");
         }
 
+        // Map connection to specific user for direct messaging
+        var userId = Context.User?.FindFirst("sub")?.Value;
+        if (!string.IsNullOrEmpty(userId))
+        {
+            await Groups.AddToGroupAsync(Context.ConnectionId, $"user-{userId}");
+        }
+
         await base.OnConnectedAsync();
     }
 

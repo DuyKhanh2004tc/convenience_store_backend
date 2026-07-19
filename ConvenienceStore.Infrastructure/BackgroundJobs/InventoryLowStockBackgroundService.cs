@@ -43,21 +43,21 @@ public class InventoryLowStockBackgroundService : BackgroundService
     {
         using var scope = _serviceProvider.CreateScope();
         var warehouseService = scope.ServiceProvider.GetRequiredService<IWarehouseInventoryService>();
-        var fcmService = scope.ServiceProvider.GetRequiredService<IFcmService>();
+        var notificationService = scope.ServiceProvider.GetRequiredService<INotificationService>();
 
         _logger.LogInformation("Checking warehouse low stock...");
         
         var lowStockProducts = await warehouseService.GetLowStockProductsAsync(10);
         foreach (var product in lowStockProducts)
         {
-            var message = $"Product {product.ProductName} is running low on stock ({product.Quantity} left).";
+            var message = $"Sản phẩm {product.ProductName} sắp hết hàng trong Kho Tổng (Còn lại: {product.Quantity}). Vui lòng kiểm tra và nhập thêm.";
             _logger.LogWarning(message);
             
-            // In a real app, you would send this to specific users or topics
-            await fcmService.SendPushNotificationAsync(
-                topic: "warehouse-alerts", 
-                title: "Low Stock Alert", 
-                body: message);
+            await notificationService.CreateAlertForRolesAsync(
+                new List<string> { "Chain Director", "Warehouse Staff", "Store Manager" },
+                "Cảnh báo Tồn kho Kho Tổng",
+                message
+            );
         }
     }
 }

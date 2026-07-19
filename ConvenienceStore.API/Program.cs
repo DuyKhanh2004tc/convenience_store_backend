@@ -52,6 +52,7 @@ builder.Services.AddScoped<IBranchInventoryService, BranchInventoryService>();
 
 // Phase 3: Notifications
 builder.Services.AddScoped<ConvenienceStore.Application.Contracts.External.IFcmService, ConvenienceStore.Infrastructure.ExternalServices.Fcm.FcmService>();
+builder.Services.AddScoped<ConvenienceStore.Application.Contracts.External.INotificationBroadcaster, ConvenienceStore.API.Services.SignalRNotificationBroadcaster>();
 builder.Services.AddHostedService<InventoryLowStockBackgroundService>();
 // HR, Shift Scheduling & Attendance Services
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
