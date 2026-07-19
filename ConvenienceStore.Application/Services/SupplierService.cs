@@ -110,8 +110,13 @@ public class SupplierService : ISupplierService
 
     public async Task<bool> DeleteSupplierAsync(int id)
     {
-        var supplier = await _supplierRepository.GetByIdAsync(id);
+        var supplier = await _supplierRepository.GetByIdAsync(id, "Products", "PurchaseOrders");
         if (supplier == null) return false;
+
+        if (supplier.Products.Any() || supplier.PurchaseOrders.Any())
+        {
+            throw new Exception("Không thể xóa nhà cung cấp vì đã có dữ liệu ràng buộc (Sản phẩm, Đơn nhập hàng...). Vui lòng chỉ vô hiệu hóa (Ngừng cung cấp) nhà cung cấp này.");
+        }
 
         _supplierRepository.Delete(supplier);
         await _unitOfWork.SaveChangesAsync();
