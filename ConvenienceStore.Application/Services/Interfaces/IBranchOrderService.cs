@@ -25,10 +25,15 @@ public interface IBranchOrderService
     Task<IEnumerable<BranchOrderDto>> GetOrdersByBranchAsync(int branchId);
 
     /// <summary>
-    /// Warehouse Staff approves an order: deducts from WarehouseInventory, adds to BranchInventory.
+    /// Warehouse Staff approves an order: deducts from WarehouseInventory, sets status to Processing.
     /// Uses database transaction for data consistency.
     /// </summary>
     Task<BranchOrderDto> ApproveOrderAsync(int orderId);
+
+    /// <summary>
+    /// Store Manager confirms they received the order: adds to BranchInventory, sets status to Fulfilled.
+    /// </summary>
+    Task<BranchOrderDto> ConfirmReceivedAsync(int orderId);
 
     /// <summary>
     /// Warehouse Staff or Store Manager cancels a pending order.
