@@ -105,7 +105,26 @@ public class BranchOrderController : ControllerBase
         try
         {
             var order = await _branchOrderService.ApproveOrderAsync(id);
-            return Ok(new { StatusCode = 200, Message = "MSG-04: Order has been approved and inventory updated successfully.", Data = order });
+            return Ok(new { StatusCode = 200, Message = "MSG-04: Order has been approved and warehouse inventory updated.", Data = order });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { StatusCode = 400, Message = ex.Message });
+        }
+    }
+
+    /// <summary>
+    /// Store Manager confirms they received the order.
+    /// Adds to BranchInventory (with Transaction).
+    /// </summary>
+    [HttpPut("{id}/confirm-received")]
+    [Authorize(Roles = "Store Manager")]
+    public async Task<IActionResult> ConfirmReceived(int id)
+    {
+        try
+        {
+            var order = await _branchOrderService.ConfirmReceivedAsync(id);
+            return Ok(new { StatusCode = 200, Message = "MSG-06: Order has been confirmed and branch inventory updated.", Data = order });
         }
         catch (Exception ex)
         {
