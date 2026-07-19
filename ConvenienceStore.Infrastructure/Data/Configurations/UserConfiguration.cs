@@ -20,6 +20,10 @@ public class UserConfiguration : IEntityTypeConfiguration<User>
         builder.Property(x => x.Phone).HasMaxLength(20);
         builder.Property(x => x.IsActive).HasDefaultValue(true);
 
+        // Employee-specific fields
+        builder.Property(x => x.Position).HasMaxLength(100);
+        builder.Property(x => x.JoinDate).HasColumnType("date");
+
         // Relationships
         builder.HasOne(x => x.Role)
             .WithMany(r => r.Users)

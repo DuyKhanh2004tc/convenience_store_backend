@@ -8,6 +8,13 @@ public class Branch : BaseEntity
     public string? Phone { get; set; }
     public bool IsActive { get; set; } = true;
 
+    // GPS coordinates for attendance geo-fencing
+    public double? Latitude { get; set; }
+    public double? Longitude { get; set; }
+
+    // Comma-separated list of allowed WiFi router MAC addresses
+    public string? AllowedWifiBssid { get; set; }
+
     // Navigation properties
     public virtual ICollection<User> Users { get; set; } = new List<User>();
     public virtual ICollection<BranchInventory> BranchInventories { get; set; } = new List<BranchInventory>();
