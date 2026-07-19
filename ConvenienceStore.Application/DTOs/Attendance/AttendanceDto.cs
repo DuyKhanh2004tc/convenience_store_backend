@@ -50,3 +50,20 @@ public class AttendanceReportDto
     public int TotalLateMinutes { get; set; }
     public int TotalEarlyMinutes { get; set; }
 }
+
+public class WorkHistoryDto
+{
+    public int AttendanceId { get; set; }
+    public int ShiftAssignmentId { get; set; }
+    public int EmployeeId { get; set; }
+    public string EmployeeName { get; set; } = string.Empty;
+    public string ShiftName { get; set; } = string.Empty;
+    public DateTime WorkDate { get; set; }
+    public TimeSpan ScheduledStartTime { get; set; }
+    public TimeSpan ScheduledEndTime { get; set; }
+    public DateTime? CheckInTime { get; set; }
+    public DateTime? CheckOutTime { get; set; }
+    public int LateMinutes { get; set; }
+    public int EarlyMinutes { get; set; }
+    public string WorkStatus { get; set; } = string.Empty;
+}

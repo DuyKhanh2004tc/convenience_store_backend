@@ -113,6 +113,42 @@ public class AttendancesController : ControllerBase
         return Ok(history);
     }
 
+    [HttpGet("work-history")]
+    [Authorize]
+    public async Task<IActionResult> GetWorkHistory(
+        [FromQuery] DateTime? startDate,
+        [FromQuery] DateTime? endDate,
+        [FromQuery] int? employeeId,
+        [FromQuery] int? branchId)
+    {
+        var today = DateTime.Today;
+        var start = (startDate ?? new DateTime(today.Year, today.Month, 1)).Date;
+        var end = (endDate ?? today).Date;
+        if (start > end)
+            return BadRequest(new { message = "Ngày bắt đầu phải trước ngày kết thúc." });
+
+        if (User.IsInRole("Store Manager"))
+        {
+            var branchClaim = User.FindFirst("BranchId")?.Value;
+            if (!int.TryParse(branchClaim, out var managerBranchId)) return Forbid();
+            return Ok(await _attendanceService.GetBranchWorkHistoryAsync(
+                managerBranchId, start, end, employeeId));
+        }
+
+        if (User.IsInRole("System Admin"))
+        {
+            if (!branchId.HasValue || branchId.Value <= 0)
+                return BadRequest(new { message = "Vui lòng chọn chi nhánh." });
+            return Ok(await _attendanceService.GetBranchWorkHistoryAsync(
+                branchId.Value, start, end, employeeId));
+        }
+
+        var currentUserId = GetCurrentUserId();
+        if (!currentUserId.HasValue) return Unauthorized();
+        return Ok(await _attendanceService.GetEmployeeWorkHistoryAsync(
+            currentUserId.Value, start, end));
+    }
+
     [HttpPost("manual")]
     [Authorize(Roles = "System Admin")]
     public async Task<IActionResult> SaveManualAttendance(

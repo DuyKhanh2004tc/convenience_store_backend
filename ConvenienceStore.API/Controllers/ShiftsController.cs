@@ -135,6 +135,13 @@ public class ShiftsController : ControllerBase
         {
             return BadRequest(new { message = ex.Message });
         }
+        catch (Exception)
+        {
+            return BadRequest(new
+            {
+                message = "Không thể lưu phân ca. Vui lòng tải lại lịch và thử lại."
+            });
+        }
     }
 
     [HttpPut("assignments/{id}")]

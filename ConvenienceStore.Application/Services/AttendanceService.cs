@@ -300,6 +300,35 @@ public class AttendanceService : IAttendanceService
             .ToList();
     }
 
+    public async Task<IEnumerable<WorkHistoryDto>> GetEmployeeWorkHistoryAsync(
+        int employeeId, DateTime startDate, DateTime endDate)
+    {
+        var assignments = (await _assignmentRepository.GetAsync(
+            assignment => assignment.EmployeeId == employeeId
+                          && assignment.WorkDate >= startDate.Date
+                          && assignment.WorkDate <= endDate.Date
+                          && assignment.Status != ShiftStatus.Cancelled)).ToList();
+
+        return await BuildWorkHistoryAsync(assignments);
+    }
+
+    public async Task<IEnumerable<WorkHistoryDto>> GetBranchWorkHistoryAsync(
+        int branchId, DateTime startDate, DateTime endDate, int? employeeId = null)
+    {
+        var branchShifts = await _shiftRepository.GetAsync(
+            shift => shift.BranchId == branchId);
+        var shiftIds = branchShifts.Select(shift => shift.ShiftId).ToHashSet();
+        var assignments = (await _assignmentRepository.GetAsync(
+            assignment => shiftIds.Contains(assignment.ShiftId)
+                          && assignment.WorkDate >= startDate.Date
+                          && assignment.WorkDate <= endDate.Date
+                          && assignment.Status != ShiftStatus.Cancelled
+                          && (!employeeId.HasValue
+                              || assignment.EmployeeId == employeeId.Value))).ToList();
+
+        return await BuildWorkHistoryAsync(assignments);
+    }
+
     public async Task<AttendanceDto> SaveManualAttendanceAsync(ManualAttendanceRequestDto dto)
     {
         var assignment = await _assignmentRepository.GetByIdAsync(dto.ShiftAssignmentId)
@@ -392,6 +421,100 @@ public class AttendanceService : IAttendanceService
         }
 
         return DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Unspecified);
+    }
+
+    private async Task<List<WorkHistoryDto>> BuildWorkHistoryAsync(
+        IReadOnlyCollection<ShiftAssignment> assignments)
+    {
+        if (assignments.Count == 0) return [];
+
+        var assignmentIds = assignments
+            .Select(assignment => assignment.AssignmentId)
+            .ToHashSet();
+        var attendances = await _attendanceRepository.GetAsync(
+            attendance => assignmentIds.Contains(attendance.ShiftAssignmentId));
+        var attendanceByAssignment = attendances.ToDictionary(
+            attendance => attendance.ShiftAssignmentId);
+
+        var shiftIds = assignments.Select(assignment => assignment.ShiftId).ToHashSet();
+        var shifts = await _shiftRepository.GetAsync(
+            shift => shiftIds.Contains(shift.ShiftId));
+        var shiftById = shifts.ToDictionary(shift => shift.ShiftId);
+
+        var employeeIds = assignments
+            .Select(assignment => assignment.EmployeeId)
+            .ToHashSet();
+        var employees = await _userRepository.GetAsync(
+            employee => employeeIds.Contains(employee.UserId));
+        var employeeById = employees.ToDictionary(employee => employee.UserId);
+        var now = GetVietnamNow();
+
+        return assignments
+            .Where(assignment => shiftById.ContainsKey(assignment.ShiftId))
+            .Select(assignment =>
+            {
+                var shift = shiftById[assignment.ShiftId];
+                attendanceByAssignment.TryGetValue(
+                    assignment.AssignmentId, out var attendance);
+                employeeById.TryGetValue(assignment.EmployeeId, out var employee);
+
+                var scheduledStart = assignment.WorkDate.Date + shift.StartTime;
+                var scheduledEnd = assignment.WorkDate.Date + shift.EndTime;
+                if (shift.EndTime <= shift.StartTime)
+                    scheduledEnd = scheduledEnd.AddDays(1);
+
+                return new WorkHistoryDto
+                {
+                    AttendanceId = attendance?.AttendanceId ?? 0,
+                    ShiftAssignmentId = assignment.AssignmentId,
+                    EmployeeId = assignment.EmployeeId,
+                    EmployeeName = employee?.FullName ?? "Nhân viên",
+                    ShiftName = shift.ShiftName,
+                    WorkDate = assignment.WorkDate,
+                    ScheduledStartTime = shift.StartTime,
+                    ScheduledEndTime = shift.EndTime,
+                    CheckInTime = attendance?.CheckInTime,
+                    CheckOutTime = attendance?.CheckOutTime,
+                    LateMinutes = attendance?.LateMinutes ?? 0,
+                    EarlyMinutes = attendance?.EarlyMinutes ?? 0,
+                    WorkStatus = ResolveWorkStatus(
+                        attendance, scheduledStart, scheduledEnd, now)
+                };
+            })
+            .OrderByDescending(item => item.WorkDate)
+            .ThenBy(item => item.ScheduledStartTime)
+            .ThenBy(item => item.EmployeeName)
+            .ToList();
+    }
+
+    private static string ResolveWorkStatus(
+        Attendance? attendance,
+        DateTime scheduledStart,
+        DateTime scheduledEnd,
+        DateTime now)
+    {
+        if (attendance?.CheckInTime == null)
+        {
+            if (now > scheduledEnd) return "Absent";
+            if (now >= scheduledStart) return "NotCheckedIn";
+            return "Upcoming";
+        }
+
+        var isLate = attendance.CheckInStatus == AttendanceStatus.Late
+                     || attendance.LateMinutes > 0;
+        if (!attendance.CheckOutTime.HasValue)
+        {
+            if (now > scheduledEnd)
+                return isLate ? "LateMissingCheckout" : "MissingCheckout";
+            return isLate ? "LateWorking" : "Working";
+        }
+
+        var isEarly = attendance.CheckOutStatus == AttendanceStatus.EarlyLeave
+                      || attendance.EarlyMinutes > 0;
+        if (isLate && isEarly) return "LateAndEarlyLeave";
+        if (isLate) return "Late";
+        if (isEarly) return "EarlyLeave";
+        return "Completed";
     }
 
     private static AttendanceDto MapToDto(

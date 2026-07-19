@@ -129,31 +129,52 @@ public class ShiftService : IShiftService
         // Iterate through each date in the range
         for (var date = dto.StartDate.Date; date <= dto.EndDate.Date; date = date.AddDays(1))
         {
-            foreach (var employeeId in dto.EmployeeIds)
+            foreach (var employeeId in dto.EmployeeIds.Distinct())
             {
                 // Validate employee exists
                 var employee = await _userRepository.GetByIdAsync(employeeId);
                 if (employee == null)
                     throw new InvalidOperationException($"Employee with ID {employeeId} not found.");
 
-                // Conflict detection: check if this employee already has a shift on this date
-                // that overlaps with the target shift's time range
-                var existingAssignments = await _assignmentRepository.GetAsync(
+                // Load cancelled assignments as well. The database unique key also
+                // includes cancelled rows, so a previously removed assignment must
+                // be reactivated instead of inserted again.
+                var assignmentsOnDate = await _assignmentRepository.GetAsync(
                     a => a.EmployeeId == employeeId
-                         && a.WorkDate == date
-                         && a.Status != ShiftStatus.Cancelled);
+                         && a.WorkDate == date);
+
+                var sameShiftAssignment = assignmentsOnDate.FirstOrDefault(
+                    a => a.ShiftId == dto.ShiftId);
+
+                if (sameShiftAssignment != null
+                    && sameShiftAssignment.Status != ShiftStatus.Cancelled)
+                {
+                    throw new InvalidOperationException(
+                        $"Nhân viên '{employee.FullName}' đã được phân " +
+                        $"'{shift.ShiftName}' vào ngày {date:dd/MM/yyyy}.");
+                }
 
                 // Check for time overlap with existing shifts
-                foreach (var existing in existingAssignments)
+                foreach (var existing in assignmentsOnDate.Where(
+                             a => a.Status != ShiftStatus.Cancelled))
                 {
                     var existingShift = await _shiftRepository.GetByIdAsync(existing.ShiftId);
                     if (existingShift != null && HasTimeOverlap(shift.StartTime, shift.EndTime, existingShift.StartTime, existingShift.EndTime))
                     {
                         throw new InvalidOperationException(
-                            $"Employee '{employee.FullName}' already has an overlapping shift " +
-                            $"'{existingShift.ShiftName}' ({existingShift.StartTime:hh\\:mm}-{existingShift.EndTime:hh\\:mm}) " +
-                            $"on {date:yyyy-MM-dd}.");
+                            $"Nhân viên '{employee.FullName}' đã có ca trùng giờ " +
+                            $"'{existingShift.ShiftName}' " +
+                            $"({existingShift.StartTime:hh\\:mm}-{existingShift.EndTime:hh\\:mm}) " +
+                            $"vào ngày {date:dd/MM/yyyy}.");
                     }
+                }
+
+                if (sameShiftAssignment != null)
+                {
+                    sameShiftAssignment.Status = ShiftStatus.Published;
+                    _assignmentRepository.Update(sameShiftAssignment);
+                    createdAssignments.Add(sameShiftAssignment);
+                    continue;
                 }
 
                 var assignment = new ShiftAssignment
@@ -163,7 +184,6 @@ public class ShiftService : IShiftService
                     WorkDate = date,
                     Status = ShiftStatus.Published
                 };
-
                 await _assignmentRepository.AddAsync(assignment);
                 createdAssignments.Add(assignment);
             }
@@ -305,6 +325,10 @@ public class ShiftService : IShiftService
     /// </summary>
     private static bool HasTimeOverlap(TimeSpan start1, TimeSpan end1, TimeSpan start2, TimeSpan end2)
     {
-        return start1 < end2 && start2 < end1;
+        // End time at or before start time means the shift ends on the next day
+        // (for example 08:00-00:00 or 22:00-06:00).
+        var normalizedEnd1 = end1 <= start1 ? end1.Add(TimeSpan.FromDays(1)) : end1;
+        var normalizedEnd2 = end2 <= start2 ? end2.Add(TimeSpan.FromDays(1)) : end2;
+        return start1 < normalizedEnd2 && start2 < normalizedEnd1;
     }
 }
