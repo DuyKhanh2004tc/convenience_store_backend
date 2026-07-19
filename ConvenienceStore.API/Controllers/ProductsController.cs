@@ -7,6 +7,7 @@ namespace ConvenienceStore.API.Controllers;
 
 [ApiController]
 [Route("api/[controller]")]
+[Authorize]
 public class ProductsController : ControllerBase
 {
     private readonly IProductService _productService;
@@ -20,6 +21,16 @@ public class ProductsController : ControllerBase
     public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] int? categoryId)
     {
         var products = await _productService.GetAllProductsAsync(search, categoryId);
+
+        // Hide cost price for Store Staff and Store Manager to protect profit margin
+        if (User.IsInRole("Store Staff") || User.IsInRole("Store Manager"))
+        {
+            foreach (var p in products)
+            {
+                p.CostPrice = 0;
+            }
+        }
+
         return Ok(products);
     }
 
@@ -31,6 +42,13 @@ public class ProductsController : ControllerBase
         {
             return NotFound(new { message = "Product not found" });
         }
+
+        // Hide cost price for Store Staff and Store Manager to protect profit margin
+        if (User.IsInRole("Store Staff") || User.IsInRole("Store Manager"))
+        {
+            product.CostPrice = 0;
+        }
+
         return Ok(product);
     }
 
@@ -42,11 +60,18 @@ public class ProductsController : ControllerBase
         {
             return NotFound(new { message = "Product not found" });
         }
+
+        // Hide cost price for Store Staff and Store Manager to protect profit margin
+        if (User.IsInRole("Store Staff") || User.IsInRole("Store Manager"))
+        {
+            product.CostPrice = 0;
+        }
+
         return Ok(product);
     }
 
     [HttpPost]
-    [Authorize(Roles = "System Admin")]
+    [Authorize(Roles = "System Admin, Chain Director")]
     public async Task<IActionResult> Create([FromBody] CreateProductDto dto)
     {
         if (!ModelState.IsValid)
@@ -66,7 +91,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpPut("{id}")]
-    [Authorize(Roles = "System Admin")]
+    [Authorize(Roles = "System Admin, Chain Director")]
     public async Task<IActionResult> Update(int id, [FromBody] UpdateProductDto dto)
     {
         if (!ModelState.IsValid)
@@ -91,7 +116,7 @@ public class ProductsController : ControllerBase
     }
 
     [HttpDelete("{id}")]
-    [Authorize(Roles = "System Admin")]
+    [Authorize(Roles = "System Admin, Chain Director")]
     public async Task<IActionResult> Delete(int id)
     {
         var result = await _productService.DeleteProductAsync(id);
