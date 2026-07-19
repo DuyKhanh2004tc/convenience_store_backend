@@ -113,6 +113,10 @@ public class ShiftService : IShiftService
 
     public async Task<IEnumerable<ShiftAssignmentDto>> AssignShiftsAsync(AssignShiftDto dto)
     {
+        if (dto.StartDate.Date < DateTime.Today || dto.EndDate.Date < DateTime.Today)
+            throw new InvalidOperationException(
+                "Không thể phân ca cho ngày trong quá khứ.");
+
         var shift = await _shiftRepository.GetByIdAsync(dto.ShiftId);
         if (shift == null)
             throw new InvalidOperationException($"Shift with ID {dto.ShiftId} not found.");
@@ -219,6 +223,15 @@ public class ShiftService : IShiftService
         return true;
     }
 
+    public async Task<bool> AssignmentBelongsToBranchAsync(int assignmentId, int branchId)
+    {
+        var assignment = await _assignmentRepository.GetByIdAsync(assignmentId);
+        if (assignment == null) return false;
+
+        var shift = await _shiftRepository.GetByIdAsync(assignment.ShiftId);
+        return shift?.BranchId == branchId;
+    }
+
     public async Task<IEnumerable<ShiftAssignmentDto>> GetMyScheduleAsync(int employeeId, DateTime? startDate, DateTime? endDate)
     {
         var start = startDate ?? DateTime.UtcNow.Date;
@@ -264,7 +277,8 @@ public class ShiftService : IShiftService
         var allAssignments = await _assignmentRepository.GetAsync(
             a => shiftIds.Contains(a.ShiftId)
                  && a.WorkDate >= start
-                 && a.WorkDate <= end);
+                 && a.WorkDate <= end
+                 && a.Status != ShiftStatus.Cancelled);
 
         var users = await _userRepository.GetAllAsync();
 

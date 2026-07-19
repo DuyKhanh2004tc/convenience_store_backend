@@ -17,6 +17,8 @@ public class AttendanceService : IAttendanceService
 
     // Maximum allowed distance from store in meters
     private const double MaxDistanceMeters = 50.0;
+    private const int CheckInOpenMinutes = 20;
+    private const int LateGraceMinutes = 15;
 
     public AttendanceService(
         IGenericRepository<Attendance> attendanceRepository,
@@ -58,6 +60,22 @@ public class AttendanceService : IAttendanceService
         if (shift == null)
             throw new InvalidOperationException("Associated shift not found.");
 
+        var now = GetVietnamNow();
+        var scheduledStart = assignment.WorkDate.Date + shift.StartTime;
+        var scheduledEnd = assignment.WorkDate.Date + shift.EndTime;
+        if (shift.EndTime <= shift.StartTime)
+            scheduledEnd = scheduledEnd.AddDays(1);
+
+        var checkInOpensAt = scheduledStart.AddMinutes(-CheckInOpenMinutes);
+        if (now < checkInOpensAt)
+            throw new InvalidOperationException(
+                $"Chưa đến giờ vào ca. Bạn có thể chấm công từ {checkInOpensAt:HH:mm}, " +
+                $"sớm hơn giờ bắt đầu {CheckInOpenMinutes} phút.");
+
+        if (now > scheduledEnd)
+            throw new InvalidOperationException(
+                "Ca làm việc đã kết thúc, không thể chấm công vào ca.");
+
         var branch = await _branchRepository.GetByIdAsync(shift.BranchId);
         if (branch == null)
             throw new InvalidOperationException("Associated branch not found.");
@@ -87,11 +105,12 @@ public class AttendanceService : IAttendanceService
                     "WiFi network verification failed. Please connect to the store's WiFi network.");
         }
 
-        // 6. Calculate late minutes
-        var now = DateTime.UtcNow;
-        var scheduledStart = assignment.WorkDate.Date + shift.StartTime;
-        var lateMinutes = (int)Math.Max(0, (now - scheduledStart).TotalMinutes);
-        var checkInStatus = lateMinutes > 0 ? AttendanceStatus.Late : AttendanceStatus.Ontime;
+        // 6. A 15-minute grace period is still considered on time.
+        var isLate = now > scheduledStart.AddMinutes(LateGraceMinutes);
+        var lateMinutes = isLate
+            ? (int)Math.Max(0, Math.Floor((now - scheduledStart).TotalMinutes))
+            : 0;
+        var checkInStatus = isLate ? AttendanceStatus.Late : AttendanceStatus.Ontime;
 
         // 7. Create attendance record
         var attendance = new Attendance
@@ -150,10 +169,17 @@ public class AttendanceService : IAttendanceService
         }
 
         // 5. Calculate early leave minutes
-        var now = DateTime.UtcNow;
+        var now = GetVietnamNow();
         var scheduledEnd = assignment.WorkDate.Date + shift.EndTime;
-        var earlyMinutes = (int)Math.Max(0, (scheduledEnd - now).TotalMinutes);
-        var checkOutStatus = earlyMinutes > 0 ? AttendanceStatus.EarlyLeave : AttendanceStatus.Ontime;
+        if (shift.EndTime <= shift.StartTime)
+            scheduledEnd = scheduledEnd.AddDays(1);
+        var isEarlyLeave = now < scheduledEnd;
+        var earlyMinutes = isEarlyLeave
+            ? Math.Max(1, (int)Math.Ceiling((scheduledEnd - now).TotalMinutes))
+            : 0;
+        var checkOutStatus = isEarlyLeave
+            ? AttendanceStatus.EarlyLeave
+            : AttendanceStatus.Ontime;
 
         // 6. Update attendance record
         attendance.CheckOutTime = now;
@@ -168,6 +194,32 @@ public class AttendanceService : IAttendanceService
         var employee = await _userRepository.GetByIdAsync(employeeId);
 
         return MapToDto(attendance, assignment, shift, employee);
+    }
+
+    public async Task<AttendanceDto?> GetTodayAttendanceAsync(int employeeId)
+    {
+        var today = GetVietnamNow().Date;
+        var assignments = (await _assignmentRepository.GetAsync(
+            assignment => assignment.EmployeeId == employeeId
+                          && assignment.WorkDate.Date == today
+                          && assignment.Status != ShiftStatus.Cancelled)).ToList();
+        if (assignments.Count == 0) return null;
+
+        var assignmentIds = assignments.Select(item => item.AssignmentId).ToHashSet();
+        var records = (await _attendanceRepository.GetAsync(
+            attendance => assignmentIds.Contains(attendance.ShiftAssignmentId)))
+            .OrderByDescending(item => item.CheckInTime)
+            .ToList();
+        var record = records.FirstOrDefault(item => !item.CheckOutTime.HasValue)
+                     ?? records.FirstOrDefault();
+        if (record == null) return null;
+
+        var assignment = assignments.First(item =>
+            item.AssignmentId == record.ShiftAssignmentId);
+        var shift = await _shiftRepository.GetByIdAsync(assignment.ShiftId);
+        if (shift == null) return null;
+        var employee = await _userRepository.GetByIdAsync(employeeId);
+        return MapToDto(record, assignment, shift, employee);
     }
 
     public async Task<IEnumerable<AttendanceReportDto>> GetAttendanceReportAsync(
@@ -251,13 +303,13 @@ public class AttendanceService : IAttendanceService
     public async Task<AttendanceDto> SaveManualAttendanceAsync(ManualAttendanceRequestDto dto)
     {
         var assignment = await _assignmentRepository.GetByIdAsync(dto.ShiftAssignmentId)
-            ?? throw new InvalidOperationException("Shift assignment not found.");
+            ?? throw new InvalidOperationException("Không tìm thấy ca làm việc đã phân.");
         var shift = await _shiftRepository.GetByIdAsync(assignment.ShiftId)
-            ?? throw new InvalidOperationException("Shift not found.");
+            ?? throw new InvalidOperationException("Không tìm thấy thông tin ca làm việc.");
         var employee = await _userRepository.GetByIdAsync(assignment.EmployeeId);
 
         if (dto.CheckOutTime.HasValue && dto.CheckOutTime.Value <= dto.CheckInTime)
-            throw new InvalidOperationException("Check-out time must be after check-in time.");
+            throw new InvalidOperationException("Giờ tan ca phải sau giờ vào ca.");
 
         var scheduledStart = assignment.WorkDate.Date + shift.StartTime;
         var scheduledEnd = assignment.WorkDate.Date + shift.EndTime;
@@ -318,6 +370,28 @@ public class AttendanceService : IAttendanceService
     private static double DegreesToRadians(double degrees)
     {
         return degrees * Math.PI / 180.0;
+    }
+
+    private static DateTime GetVietnamNow()
+    {
+        foreach (var timeZoneId in new[] { "Asia/Ho_Chi_Minh", "SE Asia Standard Time" })
+        {
+            try
+            {
+                var timeZone = TimeZoneInfo.FindSystemTimeZoneById(timeZoneId);
+                return TimeZoneInfo.ConvertTimeFromUtc(DateTime.UtcNow, timeZone);
+            }
+            catch (TimeZoneNotFoundException)
+            {
+                // Try the ID used by the other operating system.
+            }
+            catch (InvalidTimeZoneException)
+            {
+                // Fall back to UTC+7 below if the installed time-zone data is invalid.
+            }
+        }
+
+        return DateTime.SpecifyKind(DateTime.UtcNow.AddHours(7), DateTimeKind.Unspecified);
     }
 
     private static AttendanceDto MapToDto(

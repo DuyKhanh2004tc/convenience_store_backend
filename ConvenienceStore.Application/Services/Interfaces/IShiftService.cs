@@ -11,6 +11,7 @@ public interface IShiftService
     Task<IEnumerable<ShiftAssignmentDto>> AssignShiftsAsync(AssignShiftDto dto);
     Task<ShiftAssignmentDto?> UpdateAssignmentAsync(int assignmentId, int employeeId);
     Task<bool> DeleteAssignmentAsync(int assignmentId);
+    Task<bool> AssignmentBelongsToBranchAsync(int assignmentId, int branchId);
     Task<IEnumerable<ShiftAssignmentDto>> GetMyScheduleAsync(int employeeId, DateTime? startDate, DateTime? endDate);
     Task<IEnumerable<ShiftAssignmentDto>> GetStoreScheduleAsync(int branchId, DateTime? startDate, DateTime? endDate);
 }

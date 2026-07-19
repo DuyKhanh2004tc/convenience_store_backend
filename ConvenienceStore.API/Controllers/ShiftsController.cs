@@ -146,8 +146,8 @@ public class ShiftsController : ControllerBase
         {
             var branchClaim = User.FindFirst("BranchId")?.Value;
             if (!int.TryParse(branchClaim, out var branchId)) return Forbid();
-            var schedule = await _shiftService.GetStoreScheduleAsync(branchId, null, null);
-            if (!schedule.Any(item => item.AssignmentId == id)) return Forbid();
+            if (!await _shiftService.AssignmentBelongsToBranchAsync(id, branchId))
+                return Forbid();
             var employee = await _employeeService.GetEmployeeByIdAsync(dto.EmployeeId);
             if (employee?.BranchId != branchId) return Forbid();
         }
@@ -166,8 +166,8 @@ public class ShiftsController : ControllerBase
         {
             var branchClaim = User.FindFirst("BranchId")?.Value;
             if (!int.TryParse(branchClaim, out var branchId)) return Forbid();
-            var schedule = await _shiftService.GetStoreScheduleAsync(branchId, null, null);
-            if (!schedule.Any(item => item.AssignmentId == id)) return Forbid();
+            if (!await _shiftService.AssignmentBelongsToBranchAsync(id, branchId))
+                return Forbid();
         }
 
         return await _shiftService.DeleteAssignmentAsync(id)

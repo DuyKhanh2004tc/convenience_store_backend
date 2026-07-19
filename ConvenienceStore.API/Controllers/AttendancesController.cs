@@ -67,6 +67,16 @@ public class AttendancesController : ControllerBase
         }
     }
 
+    [HttpGet("my-today")]
+    [Authorize]
+    public async Task<IActionResult> GetMyTodayAttendance()
+    {
+        var userId = GetCurrentUserId();
+        if (userId == null) return Unauthorized();
+        var attendance = await _attendanceService.GetTodayAttendanceAsync(userId.Value);
+        return attendance == null ? NoContent() : Ok(attendance);
+    }
+
     /// <summary>
     /// Get attendance report for a branch within a date range.
     /// </summary>
@@ -104,7 +114,7 @@ public class AttendancesController : ControllerBase
     }
 
     [HttpPost("manual")]
-    [Authorize(Roles = "System Admin,Store Manager")]
+    [Authorize(Roles = "System Admin")]
     public async Task<IActionResult> SaveManualAttendance(
         [FromBody] ManualAttendanceRequestDto dto)
     {
@@ -113,9 +123,8 @@ public class AttendancesController : ControllerBase
             var branchClaim = User.FindFirst("BranchId")?.Value;
             if (!int.TryParse(branchClaim, out var managerBranchId)) return Forbid();
 
-            var branchSchedule = await _shiftService.GetStoreScheduleAsync(
-                managerBranchId, dto.CheckInTime.Date, dto.CheckInTime.Date);
-            if (!branchSchedule.Any(item => item.AssignmentId == dto.ShiftAssignmentId))
+            if (!await _shiftService.AssignmentBelongsToBranchAsync(
+                    dto.ShiftAssignmentId, managerBranchId))
                 return Forbid();
         }
 
