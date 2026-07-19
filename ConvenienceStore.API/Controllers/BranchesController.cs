@@ -70,12 +70,19 @@ public class BranchesController : ControllerBase
     [Authorize(Roles = "System Admin, Chain Director")]
     public async Task<IActionResult> Delete(int id)
     {
-        var result = await _branchService.DeleteBranchAsync(id);
-        if (!result)
+        try 
         {
-            return NotFound(new { message = "Branch not found" });
-        }
+            var result = await _branchService.DeleteBranchAsync(id);
+            if (!result)
+            {
+                return NotFound(new { message = "Branch not found" });
+            }
 
-        return Ok(new { message = "Branch deleted successfully" });
+            return Ok(new { message = "Branch deleted successfully" });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { message = ex.Message });
+        }
     }
 }

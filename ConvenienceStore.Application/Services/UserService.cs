@@ -273,6 +273,24 @@ public class UserService : IUserService
         await _unitOfWork.SaveChangesAsync();
     }
 
+    public async Task DeleteUserAsync(int id)
+    {
+        var user = await _userRepository.GetByIdAsync(id);
+        if (user == null)
+            throw new Exception("User not found.");
+
+        _userRepository.Delete(user);
+        
+        try 
+        {
+            await _unitOfWork.SaveChangesAsync();
+        }
+        catch (Exception)
+        {
+            throw new Exception("Không thể xóa tài khoản vì đã có dữ liệu ràng buộc (Ca làm, Hóa đơn...). Vui lòng chỉ khóa (Ngừng hoạt động) tài khoản này.");
+        }
+    }
+
     public async Task<string> ResetUserPasswordAsync(int id)
     {
         var user = await _userRepository.GetByIdAsync(id);

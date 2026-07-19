@@ -10,6 +10,7 @@ public class AuthService : IAuthService
 {
     private readonly IGenericRepository<User> _userRepository;
     private readonly IGenericRepository<Role> _roleRepository;
+    private readonly IGenericRepository<Branch> _branchRepository;
     private readonly IUnitOfWork _unitOfWork;
     private readonly IJwtTokenGenerator _jwtTokenGenerator;
     private readonly ConvenienceStore.Application.Contracts.External.ICacheService _cacheService;
@@ -18,6 +19,7 @@ public class AuthService : IAuthService
     public AuthService(
         IGenericRepository<User> userRepository,
         IGenericRepository<Role> roleRepository,
+        IGenericRepository<Branch> branchRepository,
         IUnitOfWork unitOfWork,
         IJwtTokenGenerator jwtTokenGenerator,
         ConvenienceStore.Application.Contracts.External.ICacheService cacheService,
@@ -25,6 +27,7 @@ public class AuthService : IAuthService
     {
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _branchRepository = branchRepository;
         _unitOfWork = unitOfWork;
         _jwtTokenGenerator = jwtTokenGenerator;
         _cacheService = cacheService;
@@ -41,6 +44,14 @@ public class AuthService : IAuthService
         bool isPasswordValid = BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash);
         if (!isPasswordValid)
             throw new Exception("Invalid username or password");
+
+        // Check if the user's branch is still active
+        if (user.BranchId.HasValue)
+        {
+            var branch = await _branchRepository.GetByIdAsync(user.BranchId.Value);
+            if (branch != null && !branch.IsActive)
+                throw new Exception("Chi nhánh đã ngừng hoạt động. Vui lòng liên hệ quản trị viên.");
+        }
 
         var role = await _roleRepository.GetByIdAsync(user.RoleId);
         if (role == null)

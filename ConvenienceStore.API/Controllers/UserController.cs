@@ -91,13 +91,27 @@ public class UserController : ControllerBase
         }
     }
 
-    [HttpDelete("{id}")]
+    [HttpPut("{id}/deactivate")]
     public async Task<IActionResult> DeactivateUser(int id)
     {
         try
         {
             await _userService.DeactivateUserAsync(id);
             return Ok(new { StatusCode = 200, Message = "MSG-05: Record has been deactivated successfully." });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { StatusCode = 400, Message = ex.Message });
+        }
+    }
+
+    [HttpDelete("{id}")]
+    public async Task<IActionResult> DeleteUser(int id)
+    {
+        try
+        {
+            await _userService.DeleteUserAsync(id);
+            return Ok(new { StatusCode = 200, Message = "Tài khoản đã được xóa thành công." });
         }
         catch (Exception ex)
         {

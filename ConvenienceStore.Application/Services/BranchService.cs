@@ -87,8 +87,17 @@ public class BranchService : IBranchService
 
     public async Task<bool> DeleteBranchAsync(int id)
     {
-        var branch = await _branchRepository.GetByIdAsync(id);
+        var branch = await _branchRepository.GetByIdAsync(id, "Users", "BranchInventories", "BranchOrders", "Invoices", "Shifts");
         if (branch == null) return false;
+
+        if (branch.Users.Any() || 
+            branch.BranchInventories.Any() || 
+            branch.BranchOrders.Any() || 
+            branch.Invoices.Any() || 
+            branch.Shifts.Any())
+        {
+            throw new Exception("Không thể xóa chi nhánh vì đã có dữ liệu ràng buộc (Nhân sự, Tồn kho, Đơn hàng, Hóa đơn...). Vui lòng chỉ vô hiệu hóa (Ngừng hoạt động) chi nhánh này.");
+        }
 
         _branchRepository.Delete(branch);
         await _unitOfWork.SaveChangesAsync();
