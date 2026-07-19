@@ -4,9 +4,9 @@ namespace ConvenienceStore.Application.Contracts.Persistence;
 
 public interface IGenericRepository<T> where T : class
 {
-    Task<T?> GetByIdAsync(int id);
-    Task<IReadOnlyList<T>> GetAllAsync();
-    Task<IReadOnlyList<T>> GetAsync(Expression<Func<T, bool>> predicate);
+    Task<T?> GetByIdAsync(int id, params string[] includes);
+    Task<IReadOnlyList<T>> GetAllAsync(params string[] includes);
+    Task<IReadOnlyList<T>> GetAsync(Expression<Func<T, bool>> predicate, params string[] includes);
     
     // Commands
     Task<T> AddAsync(T entity);
