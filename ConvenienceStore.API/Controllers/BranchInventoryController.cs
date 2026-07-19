@@ -30,7 +30,7 @@ public class BranchInventoryController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = ex.Message });
         }
         catch (Exception ex)
         {
@@ -49,7 +49,7 @@ public class BranchInventoryController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = ex.Message });
         }
     }
 
@@ -63,7 +63,7 @@ public class BranchInventoryController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = ex.Message });
         }
     }
 
@@ -78,7 +78,7 @@ public class BranchInventoryController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = ex.Message });
         }
         catch (Exception ex)
         {
