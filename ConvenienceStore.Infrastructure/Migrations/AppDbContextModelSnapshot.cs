@@ -721,6 +721,37 @@ namespace ConvenienceStore.Infrastructure.Migrations
                     b.ToTable("Suppliers", (string)null);
                 });
 
+            modelBuilder.Entity("ConvenienceStore.Domain.Entities.SystemSetting", b =>
+                {
+                    b.Property<string>("SettingKey")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<string>("Description")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("SettingValue")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("SettingKey");
+
+                    b.ToTable("SystemSettings");
+
+                    b.HasData(
+                        new
+                        {
+                            SettingKey = "WarehouseLowStockThreshold",
+                            Description = "Ngưỡng cảnh báo kho tổng",
+                            SettingValue = "50"
+                        },
+                        new
+                        {
+                            SettingKey = "BranchLowStockThreshold",
+                            Description = "Ngưỡng cảnh báo chi nhánh",
+                            SettingValue = "10"
+                        });
+                });
+
             modelBuilder.Entity("ConvenienceStore.Domain.Entities.User", b =>
                 {
                     b.Property<int>("UserId")
