@@ -42,7 +42,7 @@ public class InvoiceController : ControllerBase
     /// Get all invoices with optional filters (branchId, fromDate, toDate).
     /// </summary>
     [HttpGet]
-    [Authorize(Roles = "System Admin, Chain Director, Store Manager")]
+    [Authorize(Roles = "System Admin, Chain Director, Store Manager, Store Staff")]
     public async Task<IActionResult> GetAllInvoices(
         [FromQuery] int? branchId,
         [FromQuery] DateTime? fromDate,
@@ -84,7 +84,7 @@ public class InvoiceController : ControllerBase
     /// Get all invoices for a specific branch.
     /// </summary>
     [HttpGet("branch/{branchId}")]
-    [Authorize(Roles = "System Admin, Chain Director, Store Manager")]
+    [Authorize(Roles = "System Admin, Chain Director, Store Manager, Store Staff")]
     public async Task<IActionResult> GetInvoicesByBranch(int branchId)
     {
         try
@@ -102,7 +102,7 @@ public class InvoiceController : ControllerBase
     /// Get daily sales summary for a branch (used for revenue reporting).
     /// </summary>
     [HttpGet("summary/daily")]
-    [Authorize(Roles = "System Admin, Chain Director, Store Manager")]
+    [Authorize(Roles = "System Admin, Chain Director, Store Manager, Store Staff")]
     public async Task<IActionResult> GetDailySalesSummary(
         [FromQuery] int branchId,
         [FromQuery] DateTime date)

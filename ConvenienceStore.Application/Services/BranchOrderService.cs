@@ -186,8 +186,48 @@ public class BranchOrderService : IBranchOrderService
                 warehouseStock.Quantity -= detail.Quantity;
                 warehouseStock.LastUpdated = DateTime.UtcNow;
                 _warehouseInventoryRepository.Update(warehouseStock);
+            }
 
-                // 2. Add to Branch Inventory (create if not exists)
+            // 2. Update order status to Processing
+            order.Status = OrderStatus.Processing;
+            order.UpdatedAt = DateTime.UtcNow;
+            _orderRepository.Update(order);
+
+            // 3. Commit transaction
+            await _unitOfWork.CommitTransactionAsync();
+        }
+        catch
+        {
+            await _unitOfWork.RollbackTransactionAsync();
+            throw;
+        }
+        // ===== END TRANSACTION =====
+
+        return await BuildOrderDto(order);
+    }
+
+    public async Task<BranchOrderDto> ConfirmReceivedAsync(int orderId)
+    {
+        var order = await _orderRepository.GetByIdAsync(orderId);
+        if (order == null)
+            throw new Exception("Order not found.");
+
+        if (order.Status != OrderStatus.Processing)
+            throw new Exception($"Cannot confirm receipt. Current status is '{order.Status}'. Only 'Processing' orders can be confirmed.");
+
+        // Get order details
+        var orderDetails = await _orderDetailRepository.GetAsync(d => d.OrderId == orderId);
+        if (!orderDetails.Any())
+            throw new Exception("Order has no items.");
+
+        // ===== BEGIN TRANSACTION =====
+        await _unitOfWork.BeginTransactionAsync();
+
+        try
+        {
+            foreach (var detail in orderDetails)
+            {
+                // Add to Branch Inventory (create if not exists)
                 var branchStock = (await _branchInventoryRepository
                     .GetAsync(b => b.BranchId == order.BranchId && b.ProductId == detail.ProductId))
                     .FirstOrDefault();
@@ -211,12 +251,12 @@ public class BranchOrderService : IBranchOrderService
                 }
             }
 
-            // 3. Update order status
+            // Update order status to Fulfilled
             order.Status = OrderStatus.Fulfilled;
             order.UpdatedAt = DateTime.UtcNow;
             _orderRepository.Update(order);
 
-            // 4. Commit transaction
+            // Commit transaction
             await _unitOfWork.CommitTransactionAsync();
         }
         catch
