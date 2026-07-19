@@ -52,7 +52,7 @@ public class WarehouseInventoryController : ControllerBase
         }
         catch (UnauthorizedAccessException ex)
         {
-            return Forbid(ex.Message);
+            return StatusCode(StatusCodes.Status403Forbidden, new { Message = ex.Message });
         }
         catch (Exception ex)
         {
