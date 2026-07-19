@@ -1,4 +1,5 @@
 using ConvenienceStore.Application.Contracts.Persistence;
+using ConvenienceStore.Application.DTOs.Common;
 using ConvenienceStore.Application.DTOs.Supplier;
 using ConvenienceStore.Application.Services.Interfaces;
 using ConvenienceStore.Domain.Entities;
@@ -18,10 +19,14 @@ public class SupplierService : ISupplierService
         _unitOfWork = unitOfWork;
     }
 
-    public async Task<IEnumerable<SupplierDto>> GetAllSuppliersAsync()
+    public async Task<PagedResult<SupplierDto>> GetAllSuppliersAsync(int page = 1, int pageSize = 10)
     {
-        var suppliers = await _supplierRepository.GetAllAsync();
-        return suppliers.Select(s => new SupplierDto
+        var allSuppliers = await _supplierRepository.GetAllAsync();
+        
+        int totalCount = allSuppliers.Count();
+        var pagedSuppliers = allSuppliers.Skip((page - 1) * pageSize).Take(pageSize);
+
+        var items = pagedSuppliers.Select(s => new SupplierDto
         {
             SupplierId = s.SupplierId,
             SupplierName = s.SupplierName,
@@ -31,6 +36,14 @@ public class SupplierService : ISupplierService
             Address = s.Address,
             IsActive = s.IsActive
         }).ToList();
+
+        return new PagedResult<SupplierDto>
+        {
+            Items = items,
+            TotalCount = totalCount,
+            PageNumber = page,
+            PageSize = pageSize
+        };
     }
 
     public async Task<SupplierDto?> GetSupplierByIdAsync(int id)
