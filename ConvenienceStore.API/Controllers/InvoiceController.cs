@@ -118,6 +118,27 @@ public class InvoiceController : ControllerBase
         }
     }
 
+    /// <summary>
+    /// Get period sales summary for a branch (used for charting and period reporting).
+    /// </summary>
+    [HttpGet("summary/period")]
+    [Authorize(Roles = "System Admin, Chain Director, Store Manager, Store Staff")]
+    public async Task<IActionResult> GetPeriodSalesSummary(
+        [FromQuery] int branchId,
+        [FromQuery] DateTime startDate,
+        [FromQuery] DateTime endDate)
+    {
+        try
+        {
+            var summary = await _invoiceService.GetPeriodSalesSummaryAsync(branchId, startDate, endDate);
+            return Ok(new { StatusCode = 200, Message = "Success", Data = summary });
+        }
+        catch (Exception ex)
+        {
+            return BadRequest(new { StatusCode = 400, Message = ex.Message });
+        }
+    }
+
     // ===== PRIVATE HELPER =====
 
     private int GetCurrentUserId()
