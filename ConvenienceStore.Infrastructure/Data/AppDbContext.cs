@@ -33,6 +33,39 @@ public class AppDbContext : DbContext
     public DbSet<Notification> Notifications => Set<Notification>();
     public DbSet<SystemSetting> SystemSettings => Set<SystemSetting>();
 
+    public override int SaveChanges()
+    {
+        ConvertDatesToUtcPlus7();
+        return base.SaveChanges();
+    }
+
+    public override Task<int> SaveChangesAsync(CancellationToken cancellationToken = default)
+    {
+        ConvertDatesToUtcPlus7();
+        return base.SaveChangesAsync(cancellationToken);
+    }
+
+    private void ConvertDatesToUtcPlus7()
+    {
+        var entries = ChangeTracker.Entries()
+            .Where(e => e.State == EntityState.Added || e.State == EntityState.Modified);
+
+        foreach (var entry in entries)
+        {
+            foreach (var property in entry.Properties)
+            {
+                if ((property.Metadata.ClrType == typeof(DateTime) || property.Metadata.ClrType == typeof(DateTime?))
+                    && property.CurrentValue is DateTime dt)
+                {
+                    if (dt.Kind == DateTimeKind.Utc)
+                    {
+                        property.CurrentValue = dt.AddHours(7);
+                    }
+                }
+            }
+        }
+    }
+
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {
         base.OnModelCreating(modelBuilder);
