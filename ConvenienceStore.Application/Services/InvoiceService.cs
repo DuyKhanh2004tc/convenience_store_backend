@@ -322,6 +322,50 @@ public class InvoiceService : IInvoiceService
         };
     }
 
+    public async Task<PeriodSalesSummaryDto> GetPeriodSalesSummaryAsync(int branchId, DateTime startDate, DateTime endDate)
+    {
+        var branch = await _branchRepository.GetByIdAsync(branchId);
+        if (branch == null)
+            throw new Exception("Branch not found.");
+
+        var start = startDate.Date;
+        var end = endDate.Date.AddDays(1); // include the end date fully
+
+        var invoices = await _invoiceRepository.GetAsync(i =>
+            i.BranchId == branchId &&
+            i.InvoiceDate >= start &&
+            i.InvoiceDate < end &&
+            i.Status == OrderStatus.Completed);
+
+        var dailyRecords = invoices
+            .GroupBy(i => i.InvoiceDate.Date)
+            .Select(g => new DailySalesSummaryDto
+            {
+                BranchId = branchId,
+                BranchName = branch.BranchName,
+                Date = g.Key,
+                TotalInvoices = g.Count(),
+                TotalRevenue = g.Sum(i => i.TotalAmount),
+                TotalDiscount = g.Sum(i => i.DiscountAmount),
+                NetRevenue = g.Sum(i => i.FinalAmount)
+            })
+            .OrderBy(d => d.Date)
+            .ToList();
+
+        return new PeriodSalesSummaryDto
+        {
+            BranchId = branchId,
+            BranchName = branch.BranchName,
+            StartDate = start,
+            EndDate = endDate.Date,
+            TotalInvoices = invoices.Count,
+            TotalRevenue = invoices.Sum(i => i.TotalAmount),
+            TotalDiscount = invoices.Sum(i => i.DiscountAmount),
+            NetRevenue = invoices.Sum(i => i.FinalAmount),
+            DailyRecords = dailyRecords
+        };
+    }
+
     // ===== PRIVATE HELPER =====
 
     private async Task<InvoiceDto> BuildInvoiceDto(Invoice invoice)

@@ -29,6 +29,11 @@ public interface IInvoiceService
     /// Get daily sales summary for a branch.
     /// </summary>
     Task<DailySalesSummaryDto> GetDailySalesSummaryAsync(int branchId, DateTime date);
+
+    /// <summary>
+    /// Get sales summary for a branch over a specific period.
+    /// </summary>
+    Task<PeriodSalesSummaryDto> GetPeriodSalesSummaryAsync(int branchId, DateTime startDate, DateTime endDate);
 }
 
 /// <summary>
@@ -43,4 +48,20 @@ public class DailySalesSummaryDto
     public decimal TotalRevenue { get; set; }
     public decimal TotalDiscount { get; set; }
     public decimal NetRevenue { get; set; }
+}
+
+/// <summary>
+/// Summary DTO for period revenue reporting with daily breakdown.
+/// </summary>
+public class PeriodSalesSummaryDto
+{
+    public int BranchId { get; set; }
+    public string BranchName { get; set; } = string.Empty;
+    public DateTime StartDate { get; set; }
+    public DateTime EndDate { get; set; }
+    public int TotalInvoices { get; set; }
+    public decimal TotalRevenue { get; set; }
+    public decimal TotalDiscount { get; set; }
+    public decimal NetRevenue { get; set; }
+    public List<DailySalesSummaryDto> DailyRecords { get; set; } = new();
 }
