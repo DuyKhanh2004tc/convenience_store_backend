@@ -108,6 +108,51 @@ public class NotificationService : INotificationService
         }
     }
 
+    public async Task CreateAlertForBranchAsync(int branchId, string title, string message)
+    {
+        if (title.Length > 255)
+        {
+            title = title[..255];
+        }
+
+        // Send to Store Manager and Store Staff of the specific branch
+        var targetRoles = new List<string> { "Store Manager", "Store Staff" };
+        var roles = await _roleRepository.GetAsync(r => targetRoles.Contains(r.RoleName));
+        var roleIds = roles.Select(r => r.RoleId).ToList();
+
+        var users = await _userRepository.GetAsync(u => u.BranchId == branchId && roleIds.Contains(u.RoleId) && u.IsActive);
+        
+        foreach (var user in users)
+        {
+            var notification = new Notification
+            {
+                UserId = user.UserId,
+                Title = title,
+                Message = message,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            
+            await _notificationRepository.AddAsync(notification);
+        }
+        
+        await _unitOfWork.SaveChangesAsync();
+
+        foreach (var user in users)
+        {
+            var dto = new NotificationDto
+            {
+                NotificationId = 0,
+                UserId = user.UserId,
+                Title = title,
+                Message = message,
+                IsRead = false,
+                CreatedAt = DateTime.UtcNow
+            };
+            await _broadcaster.BroadcastToUserAsync(user.UserId, dto);
+        }
+    }
+
     public async Task<NotificationListDto> GetNotificationsAsync(int userId, int page, int pageSize)
     {
         var query = await _notificationRepository.GetAsync(n => n.UserId == userId);

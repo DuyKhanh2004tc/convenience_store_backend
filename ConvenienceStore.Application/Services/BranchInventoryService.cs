@@ -169,6 +169,33 @@ public class BranchInventoryService : IBranchInventoryService
         return joined;
     }
 
+    public async Task<IEnumerable<BranchInventoryDto>> GetAllLowStockAsync(int threshold)
+    {
+        var query = await _branchInventoryRepository.GetAsync(bi => bi.Quantity <= threshold);
+        var allProducts = await _productRepository.GetAllAsync();
+        var allBranches = await _branchRepository.GetAllAsync();
+
+        var joined = query.Join(allProducts, 
+            bi => bi.ProductId, 
+            p => p.ProductId, 
+            (bi, p) => new { bi, p })
+            .Join(allBranches,
+            x => x.bi.BranchId,
+            b => b.BranchId,
+            (x, b) => new BranchInventoryDto
+            {
+                BranchId = b.BranchId,
+                BranchName = b.BranchName,
+                ProductId = x.bi.ProductId,
+                ProductName = x.p.ProductName,
+                Barcode = x.p.Barcode,
+                Quantity = x.bi.Quantity,
+                LastUpdated = x.bi.LastUpdated
+            }).ToList();
+
+        return joined;
+    }
+
     public async Task<StockAdjustmentResultDto> AdjustStockAsync(int branchId, StockAdjustmentRequest request, ClaimsPrincipal currentUser)
     {
         var productIds = request.Items?
