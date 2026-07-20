@@ -1,4 +1,3 @@
-using ConvenienceStore.Application.DTOs.Inventory;
 using ConvenienceStore.Application.Services.Interfaces;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -18,12 +17,23 @@ public class WarehouseInventoryController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll([FromQuery] string? search, [FromQuery] int page = 1, [FromQuery] int pageSize = 20)
+    public async Task<IActionResult> GetAll(
+        [FromQuery] string? search,
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] bool lowStockOnly = false)
     {
         if (page < 1) page = 1;
         if (pageSize < 1) pageSize = 20;
+        if (pageSize > 100) pageSize = 100;
 
-        var result = await _service.GetAllWarehouseInventoryAsync(search, page, pageSize);
+        const int lowStockThreshold = 50;
+        var result = await _service.GetAllWarehouseInventoryAsync(
+            search,
+            page,
+            pageSize,
+            lowStockOnly,
+            lowStockThreshold);
         return Ok(result);
     }
 
@@ -36,27 +46,13 @@ public class WarehouseInventoryController : ControllerBase
     }
 
     [HttpGet("low-stock")]
-    public async Task<IActionResult> GetLowStock([FromQuery] int threshold = 10)
+    public async Task<IActionResult> GetLowStock([FromQuery] int threshold = 50)
     {
+        if (threshold < 0)
+            return BadRequest(new { Message = "Threshold cannot be negative." });
+
         var result = await _service.GetLowStockProductsAsync(threshold);
         return Ok(result);
     }
 
-    [HttpPost("adjust")]
-    public async Task<IActionResult> AdjustStock([FromBody] StockAdjustmentRequest request)
-    {
-        try
-        {
-            var result = await _service.AdjustStockAsync(request, User);
-            return Ok(result);
-        }
-        catch (UnauthorizedAccessException ex)
-        {
-            return StatusCode(StatusCodes.Status403Forbidden, new { Message = ex.Message });
-        }
-        catch (Exception ex)
-        {
-            return BadRequest(new { Message = ex.Message });
-        }
-    }
 }

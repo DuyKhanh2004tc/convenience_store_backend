@@ -8,5 +8,6 @@ public class StockAdjustmentResultItemDto
     public int ActualQuantity { get; set; }
     public int Delta { get; set; }
     public string Reason { get; set; } = string.Empty;
+    public string? Note { get; set; }
     public string AuditMessage { get; set; } = string.Empty;
 }

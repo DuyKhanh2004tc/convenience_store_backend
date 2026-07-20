@@ -9,7 +9,7 @@ namespace ConvenienceStore.API.Controllers;
 
 [Route("api/goods-receipts")]
 [ApiController]
-[Authorize(Roles = "Warehouse Staff,Chain Director,System Admin")]
+[Authorize]
 public class GoodsReceiptsController : ControllerBase
 {
     private readonly IGoodsReceiptService _service;
@@ -28,6 +28,7 @@ public class GoodsReceiptsController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Warehouse Staff")]
     public async Task<IActionResult> Create([FromBody] CreateGoodsReceiptRequest request)
     {
         try
@@ -43,6 +44,7 @@ public class GoodsReceiptsController : ControllerBase
     }
 
     [HttpGet]
+    [Authorize(Roles = "Warehouse Staff,Chain Director,System Admin")]
     public async Task<IActionResult> GetAll()
     {
         var result = await _service.GetAllGoodsReceiptsAsync();
@@ -50,6 +52,7 @@ public class GoodsReceiptsController : ControllerBase
     }
 
     [HttpGet("{id}")]
+    [Authorize(Roles = "Warehouse Staff,Chain Director,System Admin")]
     public async Task<IActionResult> GetById(int id)
     {
         var result = await _service.GetGoodsReceiptByIdAsync(id);

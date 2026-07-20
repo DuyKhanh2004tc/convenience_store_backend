@@ -3,6 +3,7 @@ using ConvenienceStore.Application.DTOs.BranchOrder;
 using ConvenienceStore.Application.Services.Interfaces;
 using ConvenienceStore.Domain.Entities;
 using ConvenienceStore.Domain.Enums;
+using Microsoft.Extensions.Logging;
 
 namespace ConvenienceStore.Application.Services;
 
@@ -15,7 +16,9 @@ public class BranchOrderService : IBranchOrderService
     private readonly IGenericRepository<Product> _productRepository;
     private readonly IGenericRepository<Branch> _branchRepository;
     private readonly IGenericRepository<User> _userRepository;
+    private readonly INotificationService _notificationService;
     private readonly IUnitOfWork _unitOfWork;
+    private readonly ILogger<BranchOrderService> _logger;
 
     public BranchOrderService(
         IGenericRepository<BranchOrder> orderRepository,
@@ -25,7 +28,9 @@ public class BranchOrderService : IBranchOrderService
         IGenericRepository<Product> productRepository,
         IGenericRepository<Branch> branchRepository,
         IGenericRepository<User> userRepository,
-        IUnitOfWork unitOfWork)
+        INotificationService notificationService,
+        IUnitOfWork unitOfWork,
+        ILogger<BranchOrderService> logger)
     {
         _orderRepository = orderRepository;
         _orderDetailRepository = orderDetailRepository;
@@ -34,7 +39,9 @@ public class BranchOrderService : IBranchOrderService
         _productRepository = productRepository;
         _branchRepository = branchRepository;
         _userRepository = userRepository;
+        _notificationService = notificationService;
         _unitOfWork = unitOfWork;
+        _logger = logger;
     }
 
     public async Task<BranchOrderDto> CreateOrderAsync(int createdByUserId, CreateBranchOrderDto request)
@@ -148,6 +155,7 @@ public class BranchOrderService : IBranchOrderService
 
     public async Task<BranchOrderDto> ApproveOrderAsync(int orderId)
     {
+        const int lowStockThreshold = 50;
         var order = await _orderRepository.GetByIdAsync(orderId);
         if (order == null)
             throw new Exception("Order not found.");
@@ -162,6 +170,8 @@ public class BranchOrderService : IBranchOrderService
 
         // ===== BEGIN TRANSACTION =====
         await _unitOfWork.BeginTransactionAsync();
+
+        var lowStockAlerts = new List<(int ProductId, string ProductName, int OldQuantity, int NewQuantity)>();
 
         try
         {
@@ -183,9 +193,21 @@ public class BranchOrderService : IBranchOrderService
                         $"Available: {warehouseStock.Quantity}, Requested: {detail.Quantity}");
                 }
 
+                var oldQuantity = warehouseStock.Quantity;
                 warehouseStock.Quantity -= detail.Quantity;
                 warehouseStock.LastUpdated = DateTime.UtcNow;
                 _warehouseInventoryRepository.Update(warehouseStock);
+
+                if (oldQuantity > lowStockThreshold &&
+                    warehouseStock.Quantity <= lowStockThreshold)
+                {
+                    var product = await _productRepository.GetByIdAsync(detail.ProductId);
+                    lowStockAlerts.Add((
+                        detail.ProductId,
+                        product?.ProductName ?? $"Sản phẩm #{detail.ProductId}",
+                        oldQuantity,
+                        warehouseStock.Quantity));
+                }
             }
 
             // 2. Update order status to Processing
@@ -202,6 +224,30 @@ public class BranchOrderService : IBranchOrderService
             throw;
         }
         // ===== END TRANSACTION =====
+
+        // Inventory has already committed. A notification failure must not make
+        // the client retry approval and deduct warehouse stock a second time.
+        foreach (var alert in lowStockAlerts)
+        {
+            try
+            {
+                await _notificationService.CreateAlertForRolesAsync(
+                    new List<string> { "Chain Director", "Warehouse Staff" },
+                    $"Cảnh báo sắp hết hàng - {alert.ProductName}",
+                    $"Sản phẩm {alert.ProductName} (ID: {alert.ProductId}) tại kho tổng " +
+                    $"đã giảm từ {alert.OldQuantity} xuống {alert.NewQuantity}. " +
+                    $"Mức tồn hiện tại đã bằng hoặc dưới ngưỡng cảnh báo {lowStockThreshold}. " +
+                    "Vui lòng kiểm tra và lập kế hoạch nhập thêm hàng.");
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(
+                    ex,
+                    "Could not send low-stock notification for product {ProductId} after approving branch order {OrderId}.",
+                    alert.ProductId,
+                    orderId);
+            }
+        }
 
         return await BuildOrderDto(order);
     }

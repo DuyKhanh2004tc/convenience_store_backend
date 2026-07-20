@@ -24,6 +24,7 @@ public class BranchInventoryController : ControllerBase
         {
             if (page < 1) page = 1;
             if (pageSize < 1) pageSize = 20;
+            if (pageSize > 100) pageSize = 100;
 
             var result = await _service.GetBranchInventoryAsync(branchId, search, page, pageSize, User);
             return Ok(result);
@@ -58,6 +59,8 @@ public class BranchInventoryController : ControllerBase
     {
         try
         {
+            if (threshold < 0)
+                return BadRequest(new { Message = "Ngưỡng tồn kho thấp không được là số âm." });
             var result = await _service.GetLowStockByBranchAsync(branchId, threshold, User);
             return Ok(result);
         }
@@ -68,7 +71,7 @@ public class BranchInventoryController : ControllerBase
     }
 
     [HttpPost("adjust")]
-    [Authorize(Roles = "Store Manager,Chain Director,System Admin")]
+    [Authorize(Roles = "Store Manager")]
     public async Task<IActionResult> AdjustStock(int branchId, [FromBody] StockAdjustmentRequest request)
     {
         try
@@ -79,6 +82,10 @@ public class BranchInventoryController : ControllerBase
         catch (UnauthorizedAccessException ex)
         {
             return StatusCode(StatusCodes.Status403Forbidden, new { Message = ex.Message });
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Conflict(new { Message = ex.Message });
         }
         catch (Exception ex)
         {

@@ -9,7 +9,7 @@ namespace ConvenienceStore.API.Controllers;
 
 [Route("api/purchase-orders")]
 [ApiController]
-[Authorize(Roles = "Warehouse Staff,Chain Director,System Admin")]
+[Authorize]
 public class PurchaseOrdersController : ControllerBase
 {
     private readonly IPurchaseOrderService _service;
@@ -28,6 +28,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpPost]
+    [Authorize(Roles = "Chain Director")]
     public async Task<IActionResult> Create([FromBody] CreatePurchaseOrderRequest request)
     {
         try
@@ -43,13 +44,28 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpGet]
-    public async Task<IActionResult> GetAll()
+    [Authorize(Roles = "Warehouse Staff,Chain Director,System Admin")]
+    public async Task<IActionResult> GetAll(
+        [FromQuery] int page = 1,
+        [FromQuery] int pageSize = 10,
+        [FromQuery] string? search = null,
+        [FromQuery] string? status = null)
     {
-        var result = await _service.GetAllPurchaseOrdersAsync();
-        return Ok(result);
+        try
+        {
+            page = Math.Max(1, page);
+            pageSize = Math.Clamp(pageSize, 1, 100);
+            var result = await _service.GetPurchaseOrdersAsync(page, pageSize, search, status);
+            return Ok(result);
+        }
+        catch (ArgumentException ex)
+        {
+            return BadRequest(new { Message = ex.Message });
+        }
     }
 
     [HttpGet("{id}")]
+    [Authorize(Roles = "Warehouse Staff,Chain Director,System Admin")]
     public async Task<IActionResult> GetById(int id)
     {
         var result = await _service.GetPurchaseOrderByIdAsync(id);
@@ -58,6 +74,7 @@ public class PurchaseOrdersController : ControllerBase
     }
 
     [HttpPut("{id}/cancel")]
+    [Authorize(Roles = "Chain Director")]
     public async Task<IActionResult> Cancel(int id)
     {
         try

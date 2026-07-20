@@ -9,4 +9,5 @@ public class GoodsReceiptDto
     public DateTime ReceivedDate { get; set; }
     public string? Notes { get; set; }
     public List<GoodsReceiptItemDto> Items { get; set; } = new();
+    public bool HasShortage => Items.Any(item => item.ShortageQuantity > 0);
 }
