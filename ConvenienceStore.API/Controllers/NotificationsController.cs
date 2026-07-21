@@ -63,7 +63,7 @@ public class NotificationsController : ControllerBase
         {
             var userId = GetCurrentUserId();
             await _service.MarkAsReadAsync(id, userId);
-            return Ok(new { Message = "Marked as read." });
+            return Ok(new { Message = "Đã đánh dấu thông báo là đã đọc." });
         }
         catch (Exception ex)
         {
@@ -78,7 +78,7 @@ public class NotificationsController : ControllerBase
         {
             var userId = GetCurrentUserId();
             await _service.MarkAllAsReadAsync(userId);
-            return Ok(new { Message = "All marked as read." });
+            return Ok(new { Message = "Đã đánh dấu tất cả thông báo là đã đọc." });
         }
         catch (Exception ex)
         {

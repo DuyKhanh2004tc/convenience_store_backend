@@ -53,7 +53,8 @@ builder.Services.AddScoped<IBranchInventoryService, BranchInventoryService>();
 // Phase 3: Notifications
 builder.Services.AddScoped<ConvenienceStore.Application.Contracts.External.IFcmService, ConvenienceStore.Infrastructure.ExternalServices.Fcm.FcmService>();
 builder.Services.AddScoped<ConvenienceStore.Application.Contracts.External.INotificationBroadcaster, ConvenienceStore.API.Services.SignalRNotificationBroadcaster>();
-builder.Services.AddHostedService<InventoryLowStockBackgroundService>();
+// Low-stock alerts are event-driven in Task 3.1. The periodic background
+// checker is intentionally not registered to avoid duplicate notifications.
 // HR, Shift Scheduling & Attendance Services
 builder.Services.AddScoped<IEmployeeService, EmployeeService>();
 builder.Services.AddScoped<IShiftService, ShiftService>();

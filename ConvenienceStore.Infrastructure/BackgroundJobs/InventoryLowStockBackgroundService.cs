@@ -1,4 +1,3 @@
-using ConvenienceStore.Application.Contracts.External;
 using ConvenienceStore.Application.Services.Interfaces;
 using ConvenienceStore.Application.Interfaces;
 using Microsoft.Extensions.DependencyInjection;
@@ -13,7 +12,9 @@ public class InventoryLowStockBackgroundService : BackgroundService
     private readonly ILogger<InventoryLowStockBackgroundService> _logger;
     private readonly TimeSpan _checkInterval = TimeSpan.FromMinutes(60);
 
-    public InventoryLowStockBackgroundService(IServiceProvider serviceProvider, ILogger<InventoryLowStockBackgroundService> logger)
+    public InventoryLowStockBackgroundService(
+        IServiceProvider serviceProvider,
+        ILogger<InventoryLowStockBackgroundService> logger)
     {
         _serviceProvider = serviceProvider;
         _logger = logger;
@@ -61,9 +62,12 @@ public class InventoryLowStockBackgroundService : BackgroundService
         var lowStockProducts = await warehouseService.GetLowStockProductsAsync(warehouseThreshold);
         foreach (var product in lowStockProducts)
         {
-            var message = $"Sản phẩm {product.ProductName} sắp hết hàng trong Kho Tổng (Còn lại: {product.Quantity}). Vui lòng kiểm tra và nhập thêm.";
-            _logger.LogWarning(message);
-            
+            var message =
+                $"Sản phẩm {product.ProductName} sắp hết hàng trong kho tổng " +
+                $"(còn lại: {product.Quantity}, ngưỡng cảnh báo: {warehouseThreshold}). " +
+                "Vui lòng kiểm tra và nhập thêm hàng.";
+
+            _logger.LogWarning("{LowStockMessage}", message);
             await notificationService.CreateAlertForRolesAsync(
                 new List<string> { "Chain Director", "Warehouse Staff", "System Admin" },
                 "Cảnh báo Tồn kho Kho Tổng",
